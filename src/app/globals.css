@@ -1,0 +1,202 @@
+@import "tailwindcss";
+
+@theme {
+  /* Fond clair, très légèrement lavande : le blanc pur écrase les cartes. */
+  --color-bg: #f7f4fb;
+  --color-card: #ffffff;
+
+  /* Encre — tout le texte et les surfaces neutres en dérivent par opacité. */
+  --color-fg: #1a1024;
+
+  /* Reste sombre : sert de texte POSÉ SUR un aplat clair (badges dorés). */
+  --color-ink-950: #12091c;
+
+  /* Accent magenta -> violet.
+     brand-300 est la seule nuance pensée pour du TEXTE sur fond clair ;
+     les autres servent aux dégradés et aux aplats. */
+  --color-brand-300: #a3179a;
+  --color-brand-400: #e879d6;
+  --color-brand-500: #e04ec8;
+  --color-brand-600: #a855f7;
+  --color-brand-700: #7c3aed;
+  --color-brand-800: #5b21b6;
+
+  /* Or : le clair pour les fonds, le foncé pour le texte sur blanc. */
+  --color-gold-400: #eaa908;
+  --color-gold-500: #d19406;
+  --color-gold-700: #8a5a00;
+
+  --radius-card: 28px;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ---------------------------------------------------------------- base */
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+body {
+  min-height: 100dvh;
+}
+
+::selection {
+  background: var(--color-brand-500);
+  color: #fff;
+}
+
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* ------------------------------------------------------------ ambiance */
+
+/* Halos violets diffus, très atténués sur fond clair. */
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(70% 45% at 50% -5%, #a855f733 0%, transparent 70%),
+    radial-gradient(50% 35% at 100% 18%, #e04ec826 0%, transparent 75%),
+    radial-gradient(60% 40% at 0% 62%, #7c3aed1f 0%, transparent 75%),
+    var(--color-bg);
+}
+
+/* Grain léger : casse les aplats de dégradé sans salir le blanc. */
+.grain::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.055;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+}
+
+/* -------------------------------------------------------------- verre */
+
+/* Sur fond clair, c'est l'ombre portée qui crée la profondeur, pas la
+   bordure : une bordure seule donne un rendu plat et sale. */
+.glass {
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(26, 16, 36, 0.07);
+  box-shadow: 0 8px 26px -16px rgba(76, 29, 109, 0.35);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+}
+
+.glass-strong {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(26, 16, 36, 0.09);
+  box-shadow: 0 20px 54px -20px rgba(76, 29, 109, 0.42);
+  backdrop-filter: blur(28px) saturate(170%);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+}
+
+/* Liseré supérieur : violet discret, un liseré blanc serait invisible ici. */
+.sheen {
+  position: relative;
+  overflow: hidden;
+}
+.sheen::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(168, 85, 247, 0.3),
+    transparent
+  );
+}
+
+/* ---------------------------------------------------------- dégradés */
+
+.grad-brand {
+  background-image: linear-gradient(135deg, #f472e0 0%, #e04ec8 42%, #7c3aed 100%);
+}
+
+.text-grad {
+  background-image: linear-gradient(100deg, #e04ec8 0%, #a855f7 50%, #6d28d9 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ------------------------------------------------------------ anims */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.sheet-up {
+  animation: sheet-up 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.fade {
+  animation: fade 0.25s ease both;
+}
+
+@keyframes eq {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.eq-bar {
+  transform-origin: bottom;
+  animation: eq 0.9s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .sheet-up,
+  .fade,
+  .eq-bar {
+    animation: none !important;
+  }
+}
