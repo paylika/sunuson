@@ -46,44 +46,75 @@ Parcours à tester : `/a/ndiagaflow` → onglet **Sons** → un morceau marqué
 *Inédit* → **Soutenir** → montant → Wave → le morceau se débloque et le nom
 apparaît dans l'onglet **Soutiens**.
 
-## État actuel
+## Base de données — Neon
 
-C'est un MVP de démonstration : tout est en mémoire, rien n'est persisté.
+La base est un Postgres Neon. Copier `.env.example` en `.env.local` et y mettre
+la chaîne de connexion (Neon Dashboard → Connection string, version *pooled*) :
 
-- Les données viennent de `src/lib/data.ts` (artistes fictifs).
-- Le lecteur simule la lecture quand un morceau n'a pas de fichier. Dès qu'un
-  `audioUrl` est présent, il pilote un vrai élément `<audio>`.
-- Le paiement est simulé : aucun appel à un agrégateur.
-- Les soutiens ajoutés pendant la session disparaissent au rechargement.
-
-## Brancher Supabase
-
-1. Créer un projet Supabase, exécuter `supabase/schema.sql` dans le SQL Editor.
-2. Renseigner `.env.local` :
-
-```
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
+```bash
+cp .env.example .env.local
 ```
 
-3. Remplacer le corps des sélecteurs de `src/lib/data.ts`
-   (`getArtistBySlug`, `getTracksByArtist`, `getClipsByArtist`) par des requêtes.
-   Les composants ne bougent pas : ils ne connaissent que les types.
+Puis créer le schéma et les données de démonstration :
 
-### Le piège de l'hébergement audio
+```bash
+npm run db:push
+```
 
-Le palier gratuit de Supabase tourne autour de **5 Go de transfert sortant par
-mois**. À 4 Mo par morceau, cela représente **environ 1 200 écoutes** — un seul
-artiste avec cent fans actifs l'épuise en une semaine.
+```bash
+npm run db:seed
+```
 
-Dès les premières écoutes réelles, sortir les fichiers audio de Supabase et les
-mettre sur **Cloudflare R2**, dont l'egress est gratuit. Supabase garde la base
-de données, l'authentification et `audio_path`. Encoder en 128 kbps : la
+`npm run db:inspect` liste les tables. Les deux scripts sont **idempotents** :
+relançables sans rien casser.
+
+| Fichier | Rôle |
+| --- | --- |
+| `db/schema.sql` | Les tables, index et la vue `artist_balances` |
+| `db/seed.sql` | Artistes fictifs, à supprimer aux premiers vrais comptes |
+| `src/lib/db.ts` | La connexion, marquée `server-only` |
+| `src/lib/queries.ts` | Toutes les lectures, côté serveur uniquement |
+
+### Le modèle de sécurité a changé
+
+Avec Supabase, c'était la RLS qui protégeait les données : le navigateur
+parlait à la base, et la base décidait de ce qu'il avait le droit de voir.
+
+**Avec Neon, le navigateur ne parle jamais à la base.** Tout passe par le
+serveur Next.js, seul détenteur de `DATABASE_URL`. La frontière de sécurité
+s'est déplacée de la base vers le serveur.
+
+Deux conséquences à ne pas rater :
+
+1. `src/lib/db.ts` importe `server-only`. Si un composant client tente de
+   l'importer, **la compilation échoue** — c'est ce qui empêche la chaîne de
+   connexion de fuiter dans le bundle du navigateur.
+2. Une insertion dans `supports` ne doit exister que dans une route serveur
+   appelée par le webhook de l'agrégateur de paiement — **jamais** dans une
+   Server Action déclenchable depuis le navigateur. Sinon n'importe qui
+   fabrique de faux soutiens.
+
+### L'hébergement audio
+
+La base ne stocke que `audio_key`, la clé de l'objet — pas l'URL complète, car
+le domaine du CDN peut changer.
+
+Les fichiers vont sur **Cloudflare R2**, dont l'egress est gratuit : c'est le
+seul poste qui explose sur un produit d'écoute. Encoder en 128 kbps — la
 différence est inaudible sur un téléphone et divise par deux la consommation
 data du fan.
 
-Les clips ne sont **jamais** hébergés — seul l'identifiant YouTube est stocké.
+Les clips ne sont **jamais** hébergés : seul l'identifiant YouTube est stocké.
+
+## État actuel
+
+- `/a/[slug]` **lit la base** (artiste, sons, clips) en rendu dynamique.
+- Les autres écrans lisent encore `src/lib/data.ts`. Migration à finir.
+- Les soutiens vivent dans un store client (`providers.tsx`) : ce qui est
+  ajouté pendant la session disparaît au rechargement.
+- Le paiement est simulé, aucun appel à un agrégateur.
+- Le lecteur simule la lecture tant qu'un morceau n'a pas de fichier. Dès qu'un
+  `audioUrl` est présent, il pilote un vrai élément `<audio>`.
 
 ## Paiement mobile money
 
@@ -92,11 +123,14 @@ Paystack — vérifier les conditions en vigueur) :
 
 1. Le client crée une intention de paiement côté serveur.
 2. `supports` reçoit une ligne en `status = 'pending'`.
-3. L'agrégateur confirme par webhook → passage en `'paid'` via `service_role`.
-4. Le soutien devient visible sur le mur (la RLS ne montre que `'paid'`).
+3. L'agrégateur confirme par webhook → passage en `'paid'`.
+4. Le soutien devient visible sur le mur (`getSupportsByArtist` ne lit que les
+   `'paid'`).
 
 **Le navigateur n'insère jamais un soutien directement.** C'est ce qui empêche
-de fabriquer de faux soutiens.
+de fabriquer de faux soutiens. La colonne `provider_ref` est `unique` : si
+l'agrégateur rejoue son webhook — ça arrive régulièrement — le soutien n'est
+pas compté deux fois.
 
 Au démarrage, les reversements aux artistes se font **à la main** : encaisser,
 puis envoyer par Wave. À dix artistes c'est parfaitement gérable, et ça évite
