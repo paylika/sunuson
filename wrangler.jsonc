@@ -1,0 +1,38 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+
+  // ⚠️ Ce nom devient celui du Worker. Vérifie qu'aucun de tes projets
+  // Cloudflare ne s'appelle déjà comme ça, sinon le déploiement l'écraserait.
+  "name": "sunuson",
+
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-09-23",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+
+  "observability": { "enabled": true },
+
+  // La base. `database_id` reste vide tant que `wrangler d1 create` n'a pas
+  // été lancé — en local, wrangler travaille sur un SQLite dans .wrangler/
+  // et ignore cet identifiant.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "sunuson-db",
+      "database_id": "REMPLIR_APRES_WRANGLER_D1_CREATE"
+    }
+  ],
+
+  // Les fichiers audio. Egress gratuit : c'est le seul poste qui explose
+  // sur un produit d'écoute.
+  "r2_buckets": [
+    {
+      "binding": "AUDIO",
+      "bucket_name": "sunuson-audio"
+    }
+  ]
+}

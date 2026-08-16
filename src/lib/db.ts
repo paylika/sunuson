@@ -1,14 +1,24 @@
 // `server-only` fait échouer la compilation si ce module est importé depuis un
-// composant client. C'est le garde-fou qui empêche DATABASE_URL de fuiter dans
-// le bundle du navigateur : avec Neon il n'y a plus de RLS, donc la chaîne de
-// connexion est la seule chose qui protège la base.
+// composant client. D1 n'est de toute façon joignable que depuis le Worker,
+// mais ce garde-fou rend l'erreur explicite au lieu d'un plantage obscur.
 import "server-only";
-import { neon } from "@neondatabase/serverless";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL manquant. Renseigne-le dans .env.local (voir .env.example).",
-  );
+/**
+ * La base D1, via le binding déclaré dans wrangler.jsonc.
+ *
+ * En `next dev`, OpenNext branche ce binding sur un SQLite local rangé dans
+ * .wrangler/ — aucun contact avec le compte Cloudflare.
+ */
+export async function db(): Promise<D1Database> {
+  const { env } = await getCloudflareContext({ async: true });
+  const binding = env.DB;
+
+  if (!binding) {
+    throw new Error(
+      "Binding D1 « DB » introuvable. Vérifie wrangler.jsonc, puis lance " +
+        "`npm run db:local` pour créer la base locale.",
+    );
+  }
+  return binding;
 }
-
-export const sql = neon(process.env.DATABASE_URL);

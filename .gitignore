@@ -2,6 +2,10 @@ node_modules
 .next
 out
 build
+
+# Cloudflare : état local (dont le SQLite D1) et sortie de build du Worker
+.wrangler
+.open-next
 .DS_Store
 *.pem
 .env

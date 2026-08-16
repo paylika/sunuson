@@ -7,24 +7,28 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:push": "node scripts/db-push.mjs",
-    "db:seed": "node scripts/db-seed.mjs",
-    "db:inspect": "node scripts/db-inspect.mjs"
+    "cf:typegen": "wrangler types",
+    "db:local": "wrangler d1 execute sunuson-db --local --file=./db/schema.sql",
+    "db:seed:local": "wrangler d1 execute sunuson-db --local --file=./db/seed.sql",
+    "db:remote": "wrangler d1 execute sunuson-db --remote --file=./db/schema.sql",
+    "db:seed:remote": "wrangler d1 execute sunuson-db --remote --file=./db/seed.sql",
+    "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "cf:deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.1.0",
-    "dotenv": "^17.4.2",
     "next": "^15.5.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.20.2",
     "@tailwindcss/postcss": "^4.1.13",
     "@types/node": "^22.15.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "tailwindcss": "^4.1.13",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "wrangler": "^4.123.0"
   }
 }

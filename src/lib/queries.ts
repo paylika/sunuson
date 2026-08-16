@@ -1,15 +1,21 @@
 import "server-only";
-import { sql } from "./db";
+import { db } from "./db";
 import type { Artist, Clip, Support, Track } from "./types";
 import type { PaymentMethod } from "./config";
 
 /**
  * Toutes les lectures de la base passent par ici, et uniquement depuis le
- * serveur. Ces fonctions remplacent les sélecteurs de src/lib/data.ts : la
- * signature est identique, les composants n'ont pas à changer.
+ * serveur. Signature identique aux sélecteurs de src/lib/data.ts : les
+ * composants ne connaissent que les types, jamais la provenance des données.
+ *
+ * Changer de base un jour (Postgres, Turso…) revient à réécrire ce fichier
+ * et db.ts. Rien d'autre ne bouge.
  */
 
 /* ------------------------------------------------------------- conversions */
+
+/** SQLite ne connaît pas les booléens : ils reviennent en 0 / 1. */
+const bool = (v: number | boolean) => v === 1 || v === true;
 
 type ArtistRow = {
   id: string;
@@ -19,9 +25,12 @@ type ArtistRow = {
   bio: string;
   gradient_from: string;
   gradient_to: string;
-  verified: boolean;
+  verified: number;
   monthly_listeners: number;
 };
+
+const ARTIST_COLS =
+  "id, slug, name, city, bio, gradient_from, gradient_to, verified, monthly_listeners";
 
 function toArtist(r: ArtistRow): Artist {
   return {
@@ -31,7 +40,7 @@ function toArtist(r: ArtistRow): Artist {
     city: r.city,
     bio: r.bio,
     gradient: [r.gradient_from, r.gradient_to],
-    verified: r.verified,
+    verified: bool(r.verified),
     monthlyListeners: r.monthly_listeners,
   };
 }
@@ -42,11 +51,14 @@ type TrackRow = {
   title: string;
   duration: number;
   plays: number;
-  released_at: string | Date;
+  released_at: string;
   audio_key: string | null;
-  locked: boolean;
+  locked: number;
   featuring: string | null;
 };
+
+const TRACK_COLS =
+  "id, artist_id, title, duration, plays, released_at, audio_key, locked, featuring";
 
 /** La base ne stocke que la clé R2 ; l'URL publique se compose ici. */
 function audioUrl(key: string | null): string | undefined {
@@ -62,9 +74,9 @@ function toTrack(r: TrackRow): Track {
     title: r.title,
     duration: r.duration,
     plays: r.plays,
-    releasedAt: String(r.released_at).slice(0, 10),
+    releasedAt: r.released_at.slice(0, 10),
     audioUrl: audioUrl(r.audio_key),
-    locked: r.locked,
+    locked: bool(r.locked),
     featuring: r.featuring ?? undefined,
   };
 }
@@ -77,7 +89,7 @@ type SupportRow = {
   amount: number;
   message: string | null;
   method: string;
-  created_at: string | Date;
+  created_at: string;
 };
 
 function toSupport(r: SupportRow): Support {
@@ -96,49 +108,54 @@ function toSupport(r: SupportRow): Support {
 /* ---------------------------------------------------------------- artistes */
 
 export async function getArtists(): Promise<Artist[]> {
-  const rows = (await sql`
-    select id, slug, name, city, bio, gradient_from, gradient_to,
-           verified, monthly_listeners
-    from artists
-    order by monthly_listeners desc
-  `) as ArtistRow[];
-  return rows.map(toArtist);
+  const { results } = await (await db())
+    .prepare(
+      `select ${ARTIST_COLS} from artists order by monthly_listeners desc`,
+    )
+    .all<ArtistRow>();
+  return results.map(toArtist);
 }
 
 export async function getArtistBySlug(slug: string): Promise<Artist | null> {
-  const rows = (await sql`
-    select id, slug, name, city, bio, gradient_from, gradient_to,
-           verified, monthly_listeners
-    from artists
-    where slug = ${slug}
-    limit 1
-  `) as ArtistRow[];
-  return rows[0] ? toArtist(rows[0]) : null;
+  const row = await (await db())
+    .prepare(`select ${ARTIST_COLS} from artists where slug = ?1`)
+    .bind(slug)
+    .first<ArtistRow>();
+  return row ? toArtist(row) : null;
 }
 
 /* -------------------------------------------------------------------- sons */
 
 export async function getTracksByArtist(artistId: string): Promise<Track[]> {
-  const rows = (await sql`
-    select id, artist_id, title, duration, plays, released_at,
-           audio_key, locked, featuring
-    from tracks
-    where artist_id = ${artistId}
-    order by position, created_at
-  `) as TrackRow[];
-  return rows.map(toTrack);
+  const { results } = await (await db())
+    .prepare(
+      `select ${TRACK_COLS} from tracks where artist_id = ?1
+       order by position, created_at`,
+    )
+    .bind(artistId)
+    .all<TrackRow>();
+  return results.map(toTrack);
 }
 
 /* ------------------------------------------------------------------- clips */
 
+type ClipRow = {
+  id: string;
+  artist_id: string;
+  title: string;
+  youtube_id: string;
+  views: number;
+};
+
 export async function getClipsByArtist(artistId: string): Promise<Clip[]> {
-  const rows = (await sql`
-    select id, artist_id, title, youtube_id, views
-    from clips
-    where artist_id = ${artistId}
-    order by created_at
-  `) as { id: string; artist_id: string; title: string; youtube_id: string; views: number }[];
-  return rows.map((r) => ({
+  const { results } = await (await db())
+    .prepare(
+      `select id, artist_id, title, youtube_id, views from clips
+       where artist_id = ?1 order by created_at`,
+    )
+    .bind(artistId)
+    .all<ClipRow>();
+  return results.map((r) => ({
     id: r.id,
     artistId: r.artist_id,
     title: r.title,
@@ -150,18 +167,21 @@ export async function getClipsByArtist(artistId: string): Promise<Clip[]> {
 /* ---------------------------------------------------------------- soutiens */
 
 /** Seuls les soutiens confirmés sont visibles : un 'pending' n'existe pas. */
-export async function getSupportsByArtist(
-  artistId: string,
-): Promise<Support[]> {
-  const rows = (await sql`
-    select id, artist_id, track_id, supporter_name, amount, message,
-           method, created_at
-    from supports
-    where artist_id = ${artistId} and status = 'paid'
-    order by created_at desc
-  `) as SupportRow[];
-  return rows.map(toSupport);
+export async function getSupportsByArtist(artistId: string): Promise<Support[]> {
+  const { results } = await (await db())
+    .prepare(
+      `select id, artist_id, track_id, supporter_name, amount, message,
+              method, created_at
+       from supports
+       where artist_id = ?1 and status = 'paid'
+       order by created_at desc`,
+    )
+    .bind(artistId)
+    .all<SupportRow>();
+  return results.map(toSupport);
 }
+
+/* ------------------------------------------------------------------ soldes */
 
 export type Balance = {
   artistId: string;
@@ -171,51 +191,41 @@ export type Balance = {
   supportCount: number;
 };
 
-export async function getBalances(): Promise<Map<string, Balance>> {
-  const rows = (await sql`
-    select artist_id, gross, net, available, support_count
-    from artist_balances
-  `) as {
-    artist_id: string;
-    gross: number;
-    net: number;
-    available: number;
-    support_count: number;
-  }[];
+type BalanceRow = {
+  artist_id: string;
+  gross: number;
+  net: number;
+  available: number;
+  support_count: number;
+};
 
-  return new Map(
-    rows.map((r) => [
-      r.artist_id,
-      {
-        artistId: r.artist_id,
-        gross: r.gross,
-        net: r.net,
-        available: r.available,
-        supportCount: r.support_count,
-      },
-    ]),
-  );
+const toBalance = (r: BalanceRow): Balance => ({
+  artistId: r.artist_id,
+  gross: r.gross,
+  net: r.net,
+  available: r.available,
+  supportCount: r.support_count,
+});
+
+export async function getBalances(): Promise<Map<string, Balance>> {
+  const { results } = await (await db())
+    .prepare("select * from artist_balances")
+    .all<BalanceRow>();
+  return new Map(results.map((r) => [r.artist_id, toBalance(r)]));
 }
 
 export async function getBalance(artistId: string): Promise<Balance> {
-  const rows = (await sql`
-    select artist_id, gross, net, available, support_count
-    from artist_balances
-    where artist_id = ${artistId}
-  `) as {
-    artist_id: string;
-    gross: number;
-    net: number;
-    available: number;
-    support_count: number;
-  }[];
-
-  const r = rows[0];
-  return {
-    artistId,
-    gross: r?.gross ?? 0,
-    net: r?.net ?? 0,
-    available: r?.available ?? 0,
-    supportCount: r?.support_count ?? 0,
-  };
+  const row = await (await db())
+    .prepare("select * from artist_balances where artist_id = ?1")
+    .bind(artistId)
+    .first<BalanceRow>();
+  return (
+    (row && toBalance(row)) ?? {
+      artistId,
+      gross: 0,
+      net: 0,
+      available: 0,
+      supportCount: 0,
+    }
+  );
 }

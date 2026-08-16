@@ -27,6 +27,13 @@ Trois conséquences qui gouvernent tout le produit :
 npm install
 ```
 
+Créer la base locale et la remplir. Tout se passe dans `.wrangler/`, **aucun
+contact avec ton compte Cloudflare** :
+
+```bash
+npm run db:local && npm run db:seed:local
+```
+
 ```bash
 npm run dev
 ```
@@ -46,69 +53,99 @@ Parcours à tester : `/a/ndiagaflow` → onglet **Sons** → un morceau marqué
 *Inédit* → **Soutenir** → montant → Wave → le morceau se débloque et le nom
 apparaît dans l'onglet **Soutiens**.
 
-## Base de données — Neon
+## Infrastructure — Cloudflare uniquement
 
-La base est un Postgres Neon. Copier `.env.example` en `.env.local` et y mettre
-la chaîne de connexion (Neon Dashboard → Connection string, version *pooled*) :
+| Brique | Service | Palier gratuit |
+| --- | --- | --- |
+| Hébergement | Workers, via l'adaptateur OpenNext | 100 k requêtes/jour |
+| Base de données | **D1** (SQLite) | 5 Go, 5 M lectures/jour |
+| Fichiers audio | **R2** | Egress **gratuit** — le poste qui explose ailleurs |
+| Clips vidéo | Aucun — ils restent sur YouTube | — |
+
+L'avantage décisif sur le gratuit Supabase : **D1 ne se met jamais en pause.**
+Un projet Supabase gratuit s'endort après une semaine sans activité — le jour
+où un artiste partage son lien après dix jours de calme, la page tombe.
+
+### D1, c'est du SQLite
+
+Trois différences avec Postgres, visibles dans `db/schema.sql` :
+
+- pas de type `uuid` → `TEXT`, l'identifiant est généré par l'app
+- pas de booléen → `INTEGER`, 0 ou 1
+- pas de `timestamptz` → `TEXT` au format ISO 8601 (UTC)
+
+Il n'y a pas de RLS non plus, et ce n'est pas un oubli : **D1 n'est joignable
+que depuis le Worker.** Le navigateur ne voit jamais la base. La frontière de
+sécurité, c'est le serveur, pas des policies.
+
+### En local
 
 ```bash
-cp .env.example .env.local
+npm run db:local && npm run db:seed:local
 ```
 
-Puis créer le schéma et les données de démonstration :
+Les deux scripts sont idempotents. Ils écrivent un SQLite dans `.wrangler/`,
+que `next dev` lit via le binding OpenNext. **Aucune authentification
+Cloudflare n'est requise, et aucun projet distant n'est touché.**
+
+Inspecter la base locale :
 
 ```bash
-npm run db:push
+npx wrangler d1 execute sunuson-db --local --command "select * from artist_balances"
+```
+
+### Passer en ligne — à faire par toi
+
+⚠️ **Avant tout : vérifie qu'aucun de tes Workers existants ne s'appelle
+`sunuson`.** C'est le seul cas où un déploiement écraserait un projet à toi. Le
+nom se change dans `wrangler.jsonc`. Les créations de base et de bucket, elles,
+ne touchent jamais à l'existant.
+
+```bash
+npx wrangler login
 ```
 
 ```bash
-npm run db:seed
+npx wrangler d1 create sunuson-db
 ```
 
-`npm run db:inspect` liste les tables. Les deux scripts sont **idempotents** :
-relançables sans rien casser.
+Reporter le `database_id` renvoyé dans `wrangler.jsonc`, puis :
 
-| Fichier | Rôle |
-| --- | --- |
-| `db/schema.sql` | Les tables, index et la vue `artist_balances` |
-| `db/seed.sql` | Artistes fictifs, à supprimer aux premiers vrais comptes |
-| `src/lib/db.ts` | La connexion, marquée `server-only` |
-| `src/lib/queries.ts` | Toutes les lectures, côté serveur uniquement |
+```bash
+npx wrangler r2 bucket create sunuson-audio
+```
 
-### Le modèle de sécurité a changé
+```bash
+npm run db:remote && npm run db:seed:remote
+```
 
-Avec Supabase, c'était la RLS qui protégeait les données : le navigateur
-parlait à la base, et la base décidait de ce qu'il avait le droit de voir.
+```bash
+npm run cf:deploy
+```
 
-**Avec Neon, le navigateur ne parle jamais à la base.** Tout passe par le
-serveur Next.js, seul détenteur de `DATABASE_URL`. La frontière de sécurité
-s'est déplacée de la base vers le serveur.
+`npm run cf:preview` permet de tester le build Worker en local avant de
+déployer quoi que ce soit.
 
-Deux conséquences à ne pas rater :
+### Changer de base plus tard coûte deux fichiers
 
-1. `src/lib/db.ts` importe `server-only`. Si un composant client tente de
-   l'importer, **la compilation échoue** — c'est ce qui empêche la chaîne de
-   connexion de fuiter dans le bundle du navigateur.
-2. Une insertion dans `supports` ne doit exister que dans une route serveur
-   appelée par le webhook de l'agrégateur de paiement — **jamais** dans une
-   Server Action déclenchable depuis le navigateur. Sinon n'importe qui
-   fabrique de faux soutiens.
+Tout accès à la base est enfermé dans `src/lib/queries.ts` et `src/lib/db.ts`.
+Aucun composant ne sait d'où viennent les données — ils ne connaissent que les
+types de `src/lib/types.ts`. Passer un jour à Postgres ou Turso revient à
+réécrire ces deux fichiers, rien d'autre.
 
 ### L'hébergement audio
 
-La base ne stocke que `audio_key`, la clé de l'objet — pas l'URL complète, car
-le domaine du CDN peut changer.
+La base ne stocke que `audio_key`, la clé de l'objet dans R2 — pas l'URL
+complète, car le domaine du CDN peut changer.
 
-Les fichiers vont sur **Cloudflare R2**, dont l'egress est gratuit : c'est le
-seul poste qui explose sur un produit d'écoute. Encoder en 128 kbps — la
-différence est inaudible sur un téléphone et divise par deux la consommation
-data du fan.
-
-Les clips ne sont **jamais** hébergés : seul l'identifiant YouTube est stocké.
+Encoder en **128 kbps** : la différence est inaudible sur un téléphone et
+divise par deux la consommation data du fan. Un son de 4 min y pèse ~4 Mo,
+contre 60 à 150 Mo pour le même morceau en clip. C'est pourquoi les clips ne
+sont **jamais** hébergés : seul l'identifiant YouTube est stocké.
 
 ## État actuel
 
-- `/a/[slug]` **lit la base** (artiste, sons, clips) en rendu dynamique.
+- `/a/[slug]` **lit D1** (artiste, sons, clips) en rendu dynamique.
 - Les autres écrans lisent encore `src/lib/data.ts`. Migration à finir.
 - Les soutiens vivent dans un store client (`providers.tsx`) : ce qui est
   ajouté pendant la session disparaît au rechargement.
