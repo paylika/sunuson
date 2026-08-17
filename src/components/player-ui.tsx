@@ -40,6 +40,7 @@ export function TrackRow({
       >
         <Cover
           gradient={artist.gradient}
+          src={track.coverUrl}
           rounded="rounded-2xl"
           className="h-13 w-13"
         />
@@ -150,6 +151,7 @@ export function MiniPlayer({ bottom = 104 }: { bottom?: number }) {
         <div className="flex items-center gap-3 p-2.5">
           <Cover
             gradient={artist.gradient}
+            src={track.coverUrl}
             rounded="rounded-xl"
             className="h-11 w-11 shrink-0"
           />

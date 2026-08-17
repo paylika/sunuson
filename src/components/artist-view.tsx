@@ -63,6 +63,7 @@ export function ArtistView({
       <div className="relative -mx-4 -mt-5">
         <Cover
           gradient={artist.gradient}
+          src={artist.coverUrl}
           rounded="rounded-b-[38px]"
           className="h-[300px] w-full"
         />
@@ -91,6 +92,7 @@ export function ArtistView({
           <Avatar
             name={artist.name}
             gradient={artist.gradient}
+            src={artist.avatarUrl}
             size={76}
             ring
           />

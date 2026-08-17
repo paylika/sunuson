@@ -42,10 +42,15 @@ export function Glass({
  */
 export function Cover({
   gradient,
+  src,
+  alt = "",
   className,
   rounded = "rounded-[26px]",
 }: {
   gradient: [string, string];
+  /** Vraie image si elle existe ; sinon le dégradé sert de repli. */
+  src?: string;
+  alt?: string;
   className?: string;
   rounded?: string;
 }) {
@@ -56,13 +61,24 @@ export function Cover({
         backgroundImage: `linear-gradient(150deg, ${gradient[0]} 0%, ${gradient[1]} 100%)`,
       }}
     >
-      <div
-        className="absolute inset-0 opacity-60"
-        style={{
-          backgroundImage:
-            "radial-gradient(60% 50% at 20% 10%, rgba(255,255,255,.45), transparent 60%), radial-gradient(50% 60% at 90% 90%, rgba(0,0,0,.5), transparent 60%)",
-        }}
-      />
+      {src ? (
+        // Pas next/image : les URL viennent d'un bucket dont le domaine
+        // change avec l'hébergeur, et l'optimiseur ne tourne pas sur Workers.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt={alt}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : (
+        <div
+          className="absolute inset-0 opacity-60"
+          style={{
+            backgroundImage:
+              "radial-gradient(60% 50% at 20% 10%, rgba(255,255,255,.45), transparent 60%), radial-gradient(50% 60% at 90% 90%, rgba(0,0,0,.5), transparent 60%)",
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -72,11 +88,14 @@ export function Cover({
 export function Avatar({
   name,
   gradient,
+  src,
   size = 44,
   ring,
 }: {
   name: string;
   gradient: [string, string];
+  /** Photo réelle si elle existe ; sinon les initiales sur dégradé. */
+  src?: string;
   size?: number;
   ring?: boolean;
 }) {
@@ -95,7 +114,16 @@ export function Avatar({
         backgroundImage: `linear-gradient(150deg, ${gradient[0]}, ${gradient[1]})`,
       }}
     >
-      <span className="drop-shadow-sm">{initials(name)}</span>
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt={name}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : (
+        <span className="drop-shadow-sm">{initials(name)}</span>
+      )}
     </div>
   );
 }

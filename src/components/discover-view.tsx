@@ -111,6 +111,7 @@ export function DiscoverView({
                 <div className="relative text-white">
                   <Cover
                     gradient={artist.gradient}
+                    src={artist.coverUrl}
                     rounded="rounded-[26px]"
                     className="aspect-[3/4] w-full"
                   />
@@ -120,6 +121,7 @@ export function DiscoverView({
                     <Avatar
                       name={artist.name}
                       gradient={artist.gradient}
+                      src={artist.avatarUrl}
                       size={38}
                       ring
                     />

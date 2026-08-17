@@ -41,16 +41,25 @@ export function SupportSheet({
   const [method, setMethod] = useState<PaymentMethod>("wave");
   const [pending, setPending] = useState(false);
 
+  /**
+   * Prix imposé par l'artiste sur ce morceau. Quand il existe, le fan ne
+   * choisit plus : ce n'est plus un don, c'est un achat.
+   */
+  const fixedAmount =
+    track?.supportMode === "fixe" && track.supportAmount
+      ? track.supportAmount
+      : null;
+
   // Remise à zéro à chaque ouverture, sinon on retombe sur l'écran de succès.
   useEffect(() => {
     if (!open) return;
     setStep("montant");
-    setAmount(2000);
+    setAmount(fixedAmount ?? 2000);
     setCustom("");
     setMessage("");
     setPending(false);
     setError(null);
-  }, [open]);
+  }, [open, fixedAmount]);
 
   useEffect(() => {
     if (!open) return;
@@ -143,6 +152,7 @@ export function SupportSheet({
               setMessage={setMessage}
               artistGets={artistGets}
               valid={valid}
+              fixedAmount={fixedAmount}
               onNext={() => setStep("paiement")}
             />
           )}
@@ -188,6 +198,7 @@ function MontantStep({
   setMessage,
   artistGets,
   valid,
+  fixedAmount,
   onNext,
 }: {
   artist: Artist;
@@ -202,6 +213,8 @@ function MontantStep({
   setMessage: (v: string) => void;
   artistGets: number;
   valid: boolean;
+  /** Prix imposé : quand il est là, le fan ne choisit plus son montant. */
+  fixedAmount: number | null;
   onNext: () => void;
 }) {
   return (
@@ -218,11 +231,23 @@ function MontantStep({
         </div>
       </div>
 
-      <div className="mt-6 mb-2 text-[12px] font-medium text-fg/45">
-        Choisis ton montant
-      </div>
+      {fixedAmount ? (
+        <div className="mt-6 rounded-[26px] grad-brand p-5 text-center text-white glow-brand">
+          <div className="text-[11.5px] font-medium text-white/75">
+            Prix fixé par l&apos;artiste
+          </div>
+          <div className="mt-1.5 text-[38px] font-bold leading-none tabular-nums">
+            {fcfa(fixedAmount, false)}
+            <span className="ml-2 text-[14px] font-normal opacity-75">FCFA</span>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="mt-6 mb-2 text-[12px] font-medium text-fg/45">
+            Choisis ton montant
+          </div>
 
-      <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-3 gap-2.5">
         {SUPPORT_PRESETS.map((v) => {
           const active = !custom && amount === v;
           return (
@@ -259,7 +284,9 @@ function MontantStep({
           />
           <span className="text-[10px] opacity-60">F</span>
         </div>
-      </div>
+          </div>
+        </>
+      )}
 
       <div className="mt-5 space-y-2.5">
         <input

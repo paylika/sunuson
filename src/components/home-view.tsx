@@ -55,6 +55,7 @@ export function HomeView({
           <div className="relative overflow-hidden rounded-[34px] text-white shadow-[0_30px_70px_-30px_rgba(88,28,135,.65)]">
             <Cover
               gradient={featured.gradient}
+              src={featured.coverUrl}
               rounded="rounded-[34px]"
               className="h-[356px] w-full"
             />
@@ -161,7 +162,12 @@ export function HomeView({
                 >
                   {i + 1}
                 </span>
-                <Avatar name={artist.name} gradient={artist.gradient} size={48} />
+                <Avatar
+                  name={artist.name}
+                  gradient={artist.gradient}
+                  src={artist.avatarUrl}
+                  size={48}
+                />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[15px] font-semibold">
                     <NameWithBadge name={artist.name} verified={artist.verified} />

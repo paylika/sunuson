@@ -2,6 +2,7 @@ import { DEMO_ARTIST_SLUG } from "@/lib/config";
 import {
   getArtistBySlug,
   getBalance,
+  getClipsByArtist,
   getSupportsByArtist,
   getTracksByArtist,
 } from "@/lib/queries";
@@ -30,8 +31,9 @@ export default async function DashboardPage() {
     );
   }
 
-  const [tracks, supports, balance] = await Promise.all([
+  const [tracks, clips, supports, balance] = await Promise.all([
     getTracksByArtist(artist.id),
+    getClipsByArtist(artist.id),
     getSupportsByArtist(artist.id),
     getBalance(artist.id),
   ]);
@@ -41,6 +43,7 @@ export default async function DashboardPage() {
       <DashboardView
         artist={artist}
         tracks={tracks}
+        clips={clips}
         supports={supports}
         balance={balance}
       />
