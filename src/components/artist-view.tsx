@@ -1,23 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { APP_DOMAIN } from "@/lib/config";
 import { compact, fcfa } from "@/lib/format";
 import type { Artist, Clip, Support, Track } from "@/lib/types";
+import { BackButton } from "./page-header";
 import { SupportSheet } from "./support-sheet";
 import { SupporterWall } from "./supporter-wall";
 import { TrackRow } from "./player-ui";
 import { Avatar, Button, Cover, cx, Glass, NameWithBadge, Stat } from "./ui";
-import {
-  ArrowUpRight,
-  Check,
-  ChevronLeft,
-  Copy,
-  Play,
-  Share,
-  Spark,
-} from "./icons";
+import { ArrowUpRight, Check, Copy, Play, Share, Spark } from "./icons";
 
 type Tab = "sons" | "clips" | "soutiens";
 
@@ -80,15 +72,10 @@ export function ArtistView({
         <div className="absolute inset-x-0 bottom-0 h-44 rounded-b-[38px] bg-gradient-to-t from-bg via-bg/70 to-transparent" />
 
         <div className="absolute inset-x-4 top-5 flex items-center justify-between">
-          <Link
-            href="/decouvrir"
-            aria-label="Retour"
-            className="grid h-11 w-11 place-items-center rounded-full glass-strong text-fg/85"
-          >
-            <ChevronLeft size={19} />
-          </Link>
+          <BackButton tone="onMedia" />
           <button
             onClick={share}
+            data-role="share"
             aria-label="Partager le lien"
             className="grid h-11 w-11 place-items-center rounded-full glass-strong text-fg/85 active:scale-90"
           >
@@ -104,14 +91,14 @@ export function ArtistView({
           <Avatar
             name={artist.name}
             gradient={artist.gradient}
-            size={68}
+            size={76}
             ring
           />
-          <div className="min-w-0 pb-1">
-            <h1 className="text-[26px] font-semibold leading-tight tracking-tight">
+          <div className="min-w-0 pb-1.5">
+            <h1 className="text-[30px] font-bold leading-[1.05]">
               <NameWithBadge name={artist.name} verified={artist.verified} />
             </h1>
-            <p className="text-[12.5px] text-fg/55">
+            <p className="mt-0.5 text-[12.5px] text-fg/50">
               {artist.city} · {compact(artist.monthlyListeners)} auditeurs / mois
             </p>
           </div>
@@ -123,7 +110,7 @@ export function ArtistView({
         {artist.bio}
       </p>
 
-      <Glass className="mt-4 grid grid-cols-3 divide-x divide-fg/10 py-4">
+      <Glass className="mt-4 grid grid-cols-3 divide-x divide-fg/[.07] rounded-[26px] py-4">
         <Stat value={fcfa(total, false)} label="FCFA reçus" accent />
         <Stat value={String(supports.length)} label="soutiens" />
         <Stat value={String(tracks.length)} label="sons" />
@@ -131,7 +118,7 @@ export function ArtistView({
 
       <Button
         onClick={() => setSheet({ open: true })}
-        className="mt-3.5 h-14 w-full text-[16px]"
+        className="mt-3.5 h-15 w-full text-[16.5px] glow-brand"
       >
         <Spark size={18} />
         Soutenir {artist.name}

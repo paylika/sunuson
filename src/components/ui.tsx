@@ -219,13 +219,13 @@ export function Stat({
     <div className="text-center">
       <div
         className={cx(
-          "text-[17px] font-semibold tabular-nums",
+          "text-[19px] font-bold tabular-nums",
           accent ? "text-gold-700" : "text-fg",
         )}
       >
         {value}
       </div>
-      <div className="mt-0.5 text-[11px] text-fg/45">{label}</div>
+      <div className="mt-0.5 text-[10.5px] font-medium text-fg/40">{label}</div>
     </div>
   );
 }

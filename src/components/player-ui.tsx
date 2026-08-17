@@ -135,7 +135,7 @@ function Equalizer() {
 
 /* --------------------------------------------------------- mini lecteur */
 
-export function MiniPlayer({ bottom = 88 }: { bottom?: number }) {
+export function MiniPlayer({ bottom = 104 }: { bottom?: number }) {
   const { track, artist, playing, position, toggle, seek } = usePlayer();
   if (!track || !artist) return null;
 

@@ -1,14 +1,15 @@
 @import "tailwindcss";
 
 @theme {
-  /* Fond clair, très légèrement lavande : le blanc pur écrase les cartes. */
-  --color-bg: #f7f4fb;
+  /* Fond : blanc cassé très légèrement lavande. Le blanc pur écrase les
+     cartes et fait ressortir les bords — celui-ci les laisse respirer. */
+  --color-bg: #fbf9fe;
   --color-card: #ffffff;
 
-  /* Encre — tout le texte et les surfaces neutres en dérivent par opacité. */
-  --color-fg: #1a1024;
+  /* Encre. Tout le texte et les surfaces neutres en dérivent par opacité. */
+  --color-fg: #180f24;
 
-  /* Reste sombre : sert de texte POSÉ SUR un aplat clair (badges dorés). */
+  /* Sert de texte POSÉ SUR un aplat clair (badges dorés). */
   --color-ink-950: #12091c;
 
   /* Accent magenta -> violet.
@@ -26,8 +27,6 @@
   --color-gold-500: #d19406;
   --color-gold-700: #8a5a00;
 
-  --radius-card: 28px;
-
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
 }
@@ -44,11 +43,20 @@ body {
   color: var(--color-fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   overscroll-behavior-y: none;
 }
 
 body {
   min-height: 100dvh;
+}
+
+/* Les titres respirent mieux resserrés ; c'est ce qui donne le côté
+   « produit fini » plutôt que « page web ». */
+h1,
+h2,
+h3 {
+  letter-spacing: -0.025em;
 }
 
 ::selection {
@@ -63,15 +71,17 @@ body {
 
 /* ------------------------------------------------------------ ambiance */
 
-/* Halos violets diffus, très atténués sur fond clair. */
+/* Nappe de couleur diffuse : trois halos qui se recouvrent, jamais un
+   dégradé linéaire — c'est ce qui évite l'effet « fond de template ». */
 .ambient {
   position: fixed;
   inset: 0;
   z-index: -2;
   background:
-    radial-gradient(70% 45% at 50% -5%, #a855f733 0%, transparent 70%),
-    radial-gradient(50% 35% at 100% 18%, #e04ec826 0%, transparent 75%),
-    radial-gradient(60% 40% at 0% 62%, #7c3aed1f 0%, transparent 75%),
+    radial-gradient(58% 38% at 50% -8%, #c084fc4d 0%, transparent 68%),
+    radial-gradient(45% 30% at 102% 12%, #f472e042 0%, transparent 72%),
+    radial-gradient(50% 34% at -8% 46%, #818cf838 0%, transparent 72%),
+    radial-gradient(60% 40% at 70% 100%, #e879d62e 0%, transparent 70%),
     var(--color-bg);
 }
 
@@ -82,32 +92,37 @@ body {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  opacity: 0.055;
+  opacity: 0.045;
   mix-blend-mode: multiply;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
 }
 
 /* -------------------------------------------------------------- verre */
 
-/* Sur fond clair, c'est l'ombre portée qui crée la profondeur, pas la
-   bordure : une bordure seule donne un rendu plat et sale. */
+/* Sur fond clair, la profondeur vient de l'ombre, pas de la bordure.
+   Deux ombres superposées : une courte qui pose la carte, une longue et
+   colorée qui la fait flotter. */
 .glass {
-  background: rgba(255, 255, 255, 0.74);
-  border: 1px solid rgba(26, 16, 36, 0.07);
-  box-shadow: 0 8px 26px -16px rgba(76, 29, 109, 0.35);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(24, 15, 36, 0.05);
+  box-shadow:
+    0 1px 2px rgba(24, 15, 36, 0.05),
+    0 12px 32px -16px rgba(88, 28, 135, 0.28);
+  backdrop-filter: blur(20px) saturate(165%);
+  -webkit-backdrop-filter: blur(20px) saturate(165%);
 }
 
 .glass-strong {
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(26, 16, 36, 0.09);
-  box-shadow: 0 20px 54px -20px rgba(76, 29, 109, 0.42);
-  backdrop-filter: blur(28px) saturate(170%);
-  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(24, 15, 36, 0.06);
+  box-shadow:
+    0 1px 2px rgba(24, 15, 36, 0.06),
+    0 28px 60px -24px rgba(88, 28, 135, 0.42);
+  backdrop-filter: blur(28px) saturate(175%);
+  -webkit-backdrop-filter: blur(28px) saturate(175%);
 }
 
-/* Liseré supérieur : violet discret, un liseré blanc serait invisible ici. */
+/* Liseré supérieur violet : un liseré blanc serait invisible ici. */
 .sheen {
   position: relative;
   overflow: hidden;
@@ -120,7 +135,7 @@ body {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(168, 85, 247, 0.3),
+    rgba(168, 85, 247, 0.28),
     transparent
   );
 }
@@ -128,7 +143,15 @@ body {
 /* ---------------------------------------------------------- dégradés */
 
 .grad-brand {
-  background-image: linear-gradient(135deg, #f472e0 0%, #e04ec8 42%, #7c3aed 100%);
+  background-image: linear-gradient(135deg, #f472e0 0%, #e04ec8 45%, #7c3aed 100%);
+}
+
+/* Halo coloré sous un élément de marque : donne le relief que la seule
+   couleur de fond ne produit pas. */
+.glow-brand {
+  box-shadow:
+    0 10px 30px -10px rgba(224, 78, 200, 0.55),
+    0 20px 60px -24px rgba(124, 58, 237, 0.5);
 }
 
 .text-grad {
@@ -138,12 +161,23 @@ body {
   color: transparent;
 }
 
+/* Pochette : dégradé de marque + voile sombre pour que le texte blanc
+   posé dessus reste lisible quelle que soit la couleur de l'artiste. */
+.media-veil {
+  background: linear-gradient(
+    to top,
+    rgba(10, 4, 18, 0.9) 0%,
+    rgba(10, 4, 18, 0.35) 45%,
+    rgba(10, 4, 18, 0) 100%
+  );
+}
+
 /* ------------------------------------------------------------ anims */
 
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(14px);
+    transform: translateY(16px);
   }
   to {
     opacity: 1;
@@ -151,7 +185,7 @@ body {
   }
 }
 .rise {
-  animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes sheet-up {
