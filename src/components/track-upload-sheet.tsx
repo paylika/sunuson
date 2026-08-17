@@ -144,13 +144,6 @@ export function TrackUploadSheet({
             </div>
             <div className="text-[11.5px] text-fg/45">{artist.name}</div>
           </div>
-          <button
-            onClick={submit}
-            disabled={!ready}
-            className="h-10 rounded-full grad-brand px-5 text-[14px] font-semibold text-white transition active:scale-95 disabled:opacity-40 disabled:active:scale-100"
-          >
-            {pending ? "Envoi…" : "Publier"}
-          </button>
         </header>
 
         <div className="flex-1 overflow-y-auto px-4 pb-10 pt-5">
@@ -352,17 +345,39 @@ export function TrackUploadSheet({
             </span>
           </button>
 
-          {error && (
-            <p className="mt-4 rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-[12.5px] leading-snug text-red-600">
-              {error}
-            </p>
-          )}
-
-          <p className="mt-4 text-center text-[11px] leading-relaxed text-fg/35">
+          <p className="mt-5 text-center text-[11px] leading-relaxed text-fg/35">
             La pochette est envoyée, pas encore le fichier audio : le lecteur
             simulera la lecture en attendant.
           </p>
         </div>
+
+        {/* Barre d'action collée en bas : le bouton reste à sa place dans
+            l'ordre de lecture, sans jamais obliger à remonter le formulaire. */}
+        <footer className="shrink-0 border-t border-fg/[.07] bg-bg/95 px-4 pb-5 pt-3 backdrop-blur-md">
+          {error && (
+            <p className="mb-2.5 rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-2.5 text-[12.5px] leading-snug text-red-600">
+              {error}
+            </p>
+          )}
+
+          <button
+            onClick={submit}
+            disabled={!ready}
+            className="h-13 w-full rounded-full grad-brand text-[15.5px] font-semibold text-white glow-brand transition active:scale-[.98] disabled:opacity-40 disabled:shadow-none disabled:active:scale-100"
+          >
+            {pending ? "Publication…" : "Publier le son"}
+          </button>
+
+          {!ready && !pending && (
+            <p className="mt-2 text-center text-[11px] text-fg/40">
+              {title.trim().length < 2
+                ? "Il manque le titre du son."
+                : !rights
+                  ? "Coche la case des droits pour publier."
+                  : "Les parts dépassent 100 %."}
+            </p>
+          )}
+        </footer>
       </div>
 
       <input

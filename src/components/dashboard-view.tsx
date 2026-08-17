@@ -13,7 +13,7 @@ import { requestPayout, updateArtistImage } from "@/lib/actions";
 import { compact, duration, fcfa, timeAgo } from "@/lib/format";
 import { PHOTO_RULES } from "@/lib/storage";
 import type { Balance } from "@/lib/queries";
-import type { Artist, Clip, Support, Track } from "@/lib/types";
+import type { Artist, Support, Track } from "@/lib/types";
 import { ArtistView } from "./artist-view";
 import { TrackUploadSheet } from "./track-upload-sheet";
 import {
@@ -33,13 +33,11 @@ type Vue = "artiste" | "fan";
 export function DashboardView({
   artist,
   tracks,
-  clips,
   supports,
   balance,
 }: {
   artist: Artist;
   tracks: Track[];
-  clips: Clip[];
   supports: Support[];
   balance: Balance;
 }) {
@@ -78,7 +76,6 @@ export function DashboardView({
           <ArtistView
             artist={artist}
             tracks={tracks}
-            clips={clips}
             supports={supports}
           />
         </div>

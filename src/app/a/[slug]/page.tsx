@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { APP_NAME } from "@/lib/config";
 import {
   getArtistBySlug,
-  getClipsByArtist,
   getSupportsByArtist,
   getTracksByArtist,
 } from "@/lib/queries";
@@ -28,20 +27,14 @@ export default async function ArtistPage({ params }: Props) {
   const artist = await getArtistBySlug(slug);
   if (!artist) notFound();
 
-  const [tracks, clips, supports] = await Promise.all([
+  const [tracks, supports] = await Promise.all([
     getTracksByArtist(artist.id),
-    getClipsByArtist(artist.id),
     getSupportsByArtist(artist.id),
   ]);
 
   return (
     <Shell>
-      <ArtistView
-        artist={artist}
-        tracks={tracks}
-        clips={clips}
-        supports={supports}
-      />
+      <ArtistView artist={artist} tracks={tracks} supports={supports} />
     </Shell>
   );
 }

@@ -1,27 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { APP_DOMAIN } from "@/lib/config";
-import { compact, fcfa } from "@/lib/format";
-import type { Artist, Clip, Support, Track } from "@/lib/types";
+import { compact } from "@/lib/format";
+import type { Artist, Support, Track } from "@/lib/types";
 import { BackButton } from "./page-header";
 import { SupportSheet } from "./support-sheet";
 import { SupporterWall } from "./supporter-wall";
 import { TrackRow } from "./player-ui";
 import { Avatar, Button, Cover, cx, Glass, NameWithBadge, Stat } from "./ui";
-import { ArrowUpRight, Check, Copy, Play, Share, Spark } from "./icons";
+import { Check, Copy, Share, Spark } from "./icons";
 
-type Tab = "sons" | "clips" | "soutiens";
+type Tab = "sons" | "soutiens";
 
 export function ArtistView({
   artist,
   tracks,
-  clips,
   supports,
 }: {
   artist: Artist;
   tracks: Track[];
-  clips: Clip[];
   /** Soutiens confirmés, chargés côté serveur. */
   supports: Support[];
 }) {
@@ -30,11 +28,6 @@ export function ArtistView({
     open: false,
   });
   const [copied, setCopied] = useState(false);
-
-  const total = useMemo(
-    () => supports.reduce((s, x) => s + x.amount, 0),
-    [supports],
-  );
 
   const link = `${APP_DOMAIN}/a/${artist.slug}`;
 
@@ -112,8 +105,17 @@ export function ArtistView({
         {artist.bio}
       </p>
 
+      {/* Le total encaissé n'apparaît nulle part côté public : afficher les
+          revenus de quelqu'un attire les jalousies et les demandes, et un
+          petit montant donne l'image d'un échec. L'artiste le voit dans son
+          espace. Ce qui reste ici, c'est la preuve sociale — comme sur les
+          plateformes de streaming. */}
       <Glass className="mt-4 grid grid-cols-3 divide-x divide-fg/[.07] rounded-[26px] py-4">
-        <Stat value={fcfa(total, false)} label="FCFA reçus" accent />
+        <Stat
+          value={compact(artist.monthlyListeners)}
+          label="auditeurs / mois"
+          accent
+        />
         <Stat value={String(supports.length)} label="soutiens" />
         <Stat value={String(tracks.length)} label="sons" />
       </Glass>
@@ -146,7 +148,6 @@ export function ArtistView({
         {(
           [
             ["sons", `Sons ${tracks.length}`],
-            ["clips", `Clips ${clips.length}`],
             ["soutiens", `Soutiens ${supports.length}`],
           ] as const
         ).map(([id, label]) => (
@@ -180,8 +181,6 @@ export function ArtistView({
           </div>
         )}
 
-        {tab === "clips" && <ClipsGrid clips={clips} artist={artist} />}
-
         {tab === "soutiens" && <SupporterWall supports={supports} />}
       </div>
 
@@ -192,59 +191,5 @@ export function ArtistView({
         onClose={() => setSheet({ open: false })}
       />
     </>
-  );
-}
-
-/* ----------------------------------------------------------------- clips */
-
-/**
- * Les clips ne sont jamais hébergés : ils restent sur YouTube, on ne stocke
- * que l'identifiant. C'est ce qui garde la facture de bande passante à zéro.
- */
-function ClipsGrid({ clips, artist }: { clips: Clip[]; artist: Artist }) {
-  if (clips.length === 0) {
-    return (
-      <Glass className="px-5 py-8 text-center text-[13.5px] text-fg/50">
-        Aucun clip pour l&apos;instant.
-      </Glass>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      {clips.map((c) => (
-        <a
-          key={c.id}
-          href={`https://www.youtube.com/watch?v=${c.youtubeId}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group"
-        >
-          <div className="relative">
-            <Cover
-              gradient={artist.gradient}
-              rounded="rounded-3xl"
-              className="aspect-[4/5] w-full"
-            />
-            <span className="absolute inset-0 grid place-items-center">
-              <span className="grid h-12 w-12 place-items-center rounded-full glass-strong text-fg transition group-active:scale-90">
-                <Play size={18} />
-              </span>
-            </span>
-            <span className="absolute right-2.5 top-2.5 grid h-7 w-7 place-items-center rounded-full glass-strong text-fg/70">
-              <ArrowUpRight size={13} />
-            </span>
-            <span className="absolute inset-x-0 bottom-0 rounded-b-3xl bg-gradient-to-t from-black/85 to-transparent p-3 text-white">
-              <span className="block text-[12.5px] font-medium leading-tight">
-                {c.title}
-              </span>
-              <span className="mt-0.5 block text-[10.5px] text-white/60">
-                {compact(c.views)} vues · YouTube
-              </span>
-            </span>
-          </div>
-        </a>
-      ))}
-    </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { APP_NAME, APP_TAGLINE } from "@/lib/config";
-import { compact, fcfa } from "@/lib/format";
+import { compact } from "@/lib/format";
 import type { Artist, Track } from "@/lib/types";
 import { usePlayer } from "./providers";
 import { Avatar, Cover, cx, Glass, NameWithBadge, SectionTitle } from "./ui";
@@ -13,12 +13,12 @@ export type RankRow = { artist: Artist; total: number; count: number };
 export function HomeView({
   featured,
   featuredTracks,
-  featuredTotal,
+  featuredSupports,
   ranking,
 }: {
   featured: Artist | null;
   featuredTracks: Track[];
-  featuredTotal: number;
+  featuredSupports: number;
   ranking: RankRow[];
 }) {
   const { track: current, playing, toggle } = usePlayer();
@@ -82,7 +82,7 @@ export function HomeView({
                 <span>{featuredTracks.length} sons</span>
                 <span className="opacity-40">•</span>
                 <span className="font-semibold text-gold-400">
-                  {fcfa(featuredTotal)} reçus
+                  {featuredSupports} soutien{featuredSupports > 1 ? "s" : ""}
                 </span>
               </div>
 
@@ -178,10 +178,10 @@ export function HomeView({
                 </div>
                 <div className="shrink-0 text-right">
                   <div className="text-[15px] font-bold tabular-nums text-gold-700">
-                    {fcfa(total, false)}
+                    {compact(artist.monthlyListeners)}
                   </div>
                   <div className="text-[9.5px] font-medium uppercase tracking-wider text-fg/35">
-                    FCFA
+                    auditeurs
                   </div>
                 </div>
               </Glass>

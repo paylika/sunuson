@@ -143,10 +143,10 @@ export function DiscoverView({
                     </span>
                     <span className="mt-2 flex items-center justify-between rounded-full bg-black/45 px-3 py-1.5 backdrop-blur-md">
                       <span className="text-[11.5px] font-semibold tabular-nums text-gold-400">
-                        {fcfa(total, false)} F
+                        {count} soutien{count > 1 ? "s" : ""}
                       </span>
                       <span className="text-[10px] text-white/55">
-                        {count} soutien{count > 1 ? "s" : ""}
+                        {compact(artist.monthlyListeners)} / mois
                       </span>
                     </span>
                   </span>

@@ -13,22 +13,25 @@ export default async function AccueilPage() {
     featured ? getTracksByArtist(featured.id) : Promise.resolve([]),
   ]);
 
-  // Le classement se fait sur les montants réellement encaissés, pas sur le
-  // nombre d'auditeurs : c'est l'argent qui raconte l'histoire du produit.
+  // Classement par NOMBRE de soutiens, jamais par montant : un palmarès des
+  // revenus expose ce que gagne chaque artiste, et humilie ceux du bas. Le
+  // compte donne la même preuve sociale sans afficher d'argent.
   const ranking = artists
     .map((a) => ({
       artist: a,
       total: balances.get(a.id)?.gross ?? 0,
       count: balances.get(a.id)?.supportCount ?? 0,
     }))
-    .sort((x, y) => y.total - x.total);
+    .sort((x, y) => y.count - x.count || y.total - x.total);
 
   return (
     <Shell>
       <HomeView
         featured={featured}
         featuredTracks={featuredTracks}
-        featuredTotal={featured ? (balances.get(featured.id)?.gross ?? 0) : 0}
+        featuredSupports={
+          featured ? (balances.get(featured.id)?.supportCount ?? 0) : 0
+        }
         ranking={ranking}
       />
     </Shell>
