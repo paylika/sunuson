@@ -6,7 +6,16 @@ import { compact } from "@/lib/format";
 import type { Artist, Track } from "@/lib/types";
 import { usePlayer } from "./providers";
 import { Avatar, Cover, cx, Glass, NameWithBadge, SectionTitle } from "./ui";
-import { Bell, ChevronRight, Music, Pause, Play, Spark, Wallet } from "./icons";
+import {
+  Bell,
+  ChevronRight,
+  Flame,
+  Music,
+  Pause,
+  Play,
+  Spark,
+  Wallet,
+} from "./icons";
 
 export type RankRow = { artist: Artist; total: number; count: number };
 
@@ -172,8 +181,15 @@ export function HomeView({
                   <div className="truncate text-[15px] font-semibold">
                     <NameWithBadge name={artist.name} verified={artist.verified} />
                   </div>
-                  <div className="mt-0.5 text-[11.5px] text-fg/40">
-                    {artist.city} · {count} soutien{count > 1 ? "s" : ""}
+                  <div className="mt-0.5 flex items-center gap-1 text-[11.5px] text-fg/40">
+                    {/* La flamme ne marque que le podium : partout, elle ne
+                        signalerait plus rien. */}
+                    {i < 3 && count > 0 && (
+                      <Flame size={13} className="shrink-0 text-acid-500" />
+                    )}
+                    <span className="truncate">
+                      {artist.city} · {count} soutien{count > 1 ? "s" : ""}
+                    </span>
                   </div>
                 </div>
                 <div className="shrink-0 text-right">

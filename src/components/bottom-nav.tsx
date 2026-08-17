@@ -13,16 +13,15 @@ const items = [
 ];
 
 /**
- * Trois onglets, chacun avec son libellé. Les icônes seules obligeaient à
- * deviner où on allait — sur un produit que les gens découvrent par un lien
- * partagé, deviner c'est partir.
+ * L'onglet actif reçoit une tuile pleine, l'inactif garde son glyphe nu.
+ * C'est le contraste entre les deux qui indique où l'on est — un simple
+ * changement de teinte se voit mal sur un écran de téléphone en plein jour.
  */
 export function BottomNav() {
   const pathname = usePathname();
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] px-4 pb-4">
-      {/* Fondu vers le fond : la nav ne coupe plus le contenu net. */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-32 bg-gradient-to-t from-bg via-bg/85 to-transparent" />
 
       <div className="glass-strong flex items-center gap-1 rounded-[26px] p-1.5">
@@ -34,15 +33,22 @@ export function BottomNav() {
               key={href}
               href={href}
               aria-current={active ? "page" : undefined}
-              className={cx(
-                "flex flex-1 flex-col items-center gap-1 rounded-[20px] py-2.5 transition",
-                active
-                  ? "grad-brand text-ink glow-brand"
-                  : "text-fg/45 active:scale-95",
-              )}
+              className="flex flex-1 flex-col items-center gap-1.5 py-1.5"
             >
-              <Icon size={19} />
-              <span className="text-[9.5px] font-semibold leading-none tracking-tight">
+              <span
+                className={cx(
+                  "grid h-10 w-full place-items-center rounded-2xl transition",
+                  active ? "grad-brand text-ink" : "text-fg/40",
+                )}
+              >
+                <Icon size={20} />
+              </span>
+              <span
+                className={cx(
+                  "text-[9.5px] font-bold leading-none tracking-tight transition",
+                  active ? "text-fg" : "text-fg/40",
+                )}
+              >
                 {label}
               </span>
             </Link>
