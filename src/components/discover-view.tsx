@@ -54,7 +54,7 @@ export function DiscoverView({
   return (
     <>
       <header className="mb-5">
-        <h1 className="text-[27px] font-semibold tracking-tight">Découvrir</h1>
+        <h1 className="display text-[32px] font-extrabold">Découvrir</h1>
         <p className="mt-1 text-[12.5px] text-fg/45">
           {rows.length} artistes · {trackCount} sons
         </p>
@@ -78,7 +78,7 @@ export function DiscoverView({
             className={cx(
               "shrink-0 rounded-full px-4 py-2 text-[12.5px] font-medium transition",
               ville === v
-                ? "grad-brand text-white"
+                ? "grad-brand text-ink"
                 : "glass text-fg/55 active:scale-95",
             )}
           >

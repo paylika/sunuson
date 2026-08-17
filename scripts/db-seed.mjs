@@ -10,11 +10,11 @@ const C = (n) => `c0000000-0000-4000-8000-00000000000${n}`;
 const D = (n) => `d0000000-0000-4000-8000-0000000000${String(n).padStart(2, "0")}`;
 
 const artists = [
-  { id: A(1), slug: "ndiagaflow", name: "Ndiaga Flow", city: "Pikine", bio: "Rap conscient, prod maison. Deux projets sortis, tout en indé. Le troisième arrive.", gradient_from: "#e04ec8", gradient_to: "#5b21b6", verified: true, monthly_listeners: 41200 },
-  { id: A(2), slug: "maladee", name: "Mala Dee", city: "Guédiawaye", bio: "Drill sénégalaise. Wolof, français, un peu d'anglais quand ça sert.", gradient_from: "#f472e0", gradient_to: "#7c3aed", verified: false, monthly_listeners: 18600 },
-  { id: A(3), slug: "sistakine", name: "Sista Kiné", city: "Médina", bio: "Plume tranchante, flow posé. Elle écrit tout, elle ne signe rien.", gradient_from: "#fbd24e", gradient_to: "#a855f7", verified: true, monthly_listeners: 27400 },
-  { id: A(4), slug: "bayeloops", name: "Baye Loops", city: "Thiès", bio: "Beatmaker devenu rappeur. Sample sabar, kick lourd.", gradient_from: "#22d3ee", gradient_to: "#7c3aed", verified: false, monthly_listeners: 9800 },
-  { id: A(5), slug: "xamsa", name: "Xamsa", city: "Parcelles Assainies", bio: "Freestyle tous les vendredis. La communauté suit depuis 2023.", gradient_from: "#fb7185", gradient_to: "#6d28d9", verified: false, monthly_listeners: 12300 },
+  { id: A(1), slug: "ndiagaflow", name: "Ndiaga Flow", city: "Pikine", bio: "Rap conscient, prod maison. Deux projets sortis, tout en indé. Le troisième arrive.", gradient_from: "#3B4048", gradient_to: "#141619", verified: true, monthly_listeners: 41200 },
+  { id: A(2), slug: "maladee", name: "Mala Dee", city: "Guédiawaye", bio: "Drill sénégalaise. Wolof, français, un peu d'anglais quand ça sert.", gradient_from: "#463A44", gradient_to: "#17141A", verified: false, monthly_listeners: 18600 },
+  { id: A(3), slug: "sistakine", name: "Sista Kiné", city: "Médina", bio: "Plume tranchante, flow posé. Elle écrit tout, elle ne signe rien.", gradient_from: "#474330", gradient_to: "#1A1814", verified: true, monthly_listeners: 27400 },
+  { id: A(4), slug: "bayeloops", name: "Baye Loops", city: "Thiès", bio: "Beatmaker devenu rappeur. Sample sabar, kick lourd.", gradient_from: "#31444A", gradient_to: "#14181A", verified: false, monthly_listeners: 9800 },
+  { id: A(5), slug: "xamsa", name: "Xamsa", city: "Parcelles Assainies", bio: "Freestyle tous les vendredis. La communauté suit depuis 2023.", gradient_from: "#4A3B36", gradient_to: "#1A1514", verified: false, monthly_listeners: 12300 },
 ];
 
 const tracks = [
@@ -54,7 +54,7 @@ const s = (id, artist, name, amount, message, method, iso) => ({
 });
 
 const supports = [
-  s(1,  A(1), "Modou D.",       25000, "Le projet est trop propre frère 🔥", "wave",         "2026-08-14T19:20:00Z"),
+  s(1,  A(1), "Modou D.",       25000, "Le projet est trop propre, respect", "wave",         "2026-08-14T19:20:00Z"),
   s(2,  A(1), "Astou Ndiaye",   10000, "Depuis le premier son je suis là",   "wave",         "2026-08-14T09:05:00Z"),
   s(3,  A(1), "Alioune Badara", 10000, null,                                 "orange_money", "2026-08-13T22:40:00Z"),
   s(4,  A(1), "Fatou N.",        5000, "Bantamba en boucle",                 "wave",         "2026-08-13T14:12:00Z"),
@@ -70,7 +70,7 @@ const supports = [
   s(14, A(2), "Anonyme",         1000, null,                                 "wave",         "2026-08-11T10:30:00Z"),
   s(15, A(3), "Bineta S.",      20000, "Lettre à ma mère m'a fait pleurer",  "wave",         "2026-08-14T15:35:00Z"),
   s(16, A(3), "Ousmane K.",     10000, null,                                 "wave",         "2026-08-13T09:20:00Z"),
-  s(17, A(3), "Mariama",         5000, "Respect 🙏",                         "orange_money", "2026-08-12T19:05:00Z"),
+  s(17, A(3), "Mariama",         5000, "Respect total",                         "orange_money", "2026-08-12T19:05:00Z"),
   s(18, A(3), "Lamine D.",       2000, null,                                 "wave",         "2026-08-11T12:00:00Z"),
   s(19, A(4), "Samba",           5000, "Le pack de prods vaut le coup",      "wave",         "2026-08-13T20:15:00Z"),
   s(20, A(4), "Anonyme",         2000, null,                                 "wave",         "2026-08-12T08:10:00Z"),

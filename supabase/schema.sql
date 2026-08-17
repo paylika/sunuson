@@ -13,8 +13,8 @@ create table if not exists public.artists (
   name              text not null,
   city              text not null default '',
   bio               text not null default '',
-  gradient_from     text not null default '#e04ec8',
-  gradient_to       text not null default '#5b21b6',
+  gradient_from     text not null default '#3B4048',
+  gradient_to       text not null default '#141619',
   verified          boolean not null default false,
   monthly_listeners integer not null default 0,
   payout_method     text not null default 'wave'

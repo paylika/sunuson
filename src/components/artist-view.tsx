@@ -90,7 +90,7 @@ export function ArtistView({
             ring
           />
           <div className="min-w-0 pb-1.5">
-            <h1 className="text-[30px] font-bold leading-[1.05]">
+            <h1 className="display text-[34px] font-extrabold">
               <NameWithBadge name={artist.name} verified={artist.verified} />
             </h1>
             <p className="mt-0.5 text-[12.5px] text-fg/50">
@@ -157,7 +157,7 @@ export function ArtistView({
             className={cx(
               "h-10 flex-1 rounded-full text-[13px] font-medium transition",
               tab === id
-                ? "grad-brand text-white shadow-[0_8px_22px_-10px_rgba(224,78,200,.9)]"
+                ? "grad-brand text-ink shadow-[0_8px_22px_-10px_rgba(224,78,200,.9)]"
                 : "text-fg/50",
             )}
           >

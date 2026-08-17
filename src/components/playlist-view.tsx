@@ -54,7 +54,7 @@ export function PlaylistView() {
   return (
     <>
       <header className="mb-5">
-        <h1 className="text-[27px] font-bold">Ma playlist</h1>
+        <h1 className="display text-[32px] font-extrabold">Ma playlist</h1>
         <p className="mt-1 text-[12.5px] text-fg/45">
           {ready && !loading
             ? entries.length === 0
@@ -84,7 +84,7 @@ export function PlaylistView() {
           </p>
           <Link
             href="/decouvrir"
-            className="mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-full grad-brand px-6 text-[14.5px] font-semibold text-white glow-brand active:scale-[.98]"
+            className="mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-full grad-brand px-6 text-[14.5px] font-semibold text-ink glow-brand active:scale-[.98]"
           >
             Découvrir des artistes
             <ChevronRight size={16} />
@@ -176,7 +176,7 @@ export function PlaylistView() {
                   aria-label="Soutenir ce morceau"
                   className={cx(
                     "grid h-10 w-10 shrink-0 place-items-center rounded-full transition active:scale-90",
-                    locked ? "grad-brand text-white" : "glass text-fg/45",
+                    locked ? "grad-brand text-ink" : "glass text-fg/45",
                   )}
                 >
                   <Spark size={15} />

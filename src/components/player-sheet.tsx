@@ -161,7 +161,7 @@ export function PlayerSheet() {
 
         {/* --------------------------------------------------------- titre */}
         <div className="mt-6 text-center">
-          <h1 className="text-[24px] font-bold leading-tight">{track.title}</h1>
+          <h1 className="display text-[27px] font-extrabold">{track.title}</h1>
           <p className="mt-1 text-[13px] text-fg/50">
             {track.collaborators.length > 0
               ? `feat. ${track.collaborators.map((c) => c.name).join(", ")}`
@@ -213,7 +213,7 @@ export function PlayerSheet() {
           <button
             onClick={() => toggle(track, artist)}
             aria-label={playing ? "Pause" : "Lecture"}
-            className="grid h-18 w-18 shrink-0 place-items-center rounded-full grad-brand text-white glow-brand transition active:scale-90"
+            className="grid h-18 w-18 shrink-0 place-items-center rounded-full grad-brand text-ink glow-brand transition active:scale-90"
           >
             {playing ? <Pause size={26} /> : <Play size={26} />}
           </button>
@@ -234,7 +234,7 @@ export function PlayerSheet() {
             aria-label={repeat ? "Désactiver la répétition" : "Répéter"}
             className={cx(
               "grid h-12 w-12 shrink-0 place-items-center rounded-full transition active:scale-90",
-              repeat ? "grad-brand text-white" : "glass text-fg/45",
+              repeat ? "grad-brand text-ink" : "glass text-fg/45",
             )}
           >
             {repeat ? <RepeatOne size={19} /> : <Repeat size={19} />}
@@ -247,7 +247,7 @@ export function PlayerSheet() {
 
           <button
             onClick={() => setSheetOpen(true)}
-            className="mt-3 flex h-14 w-full items-center justify-center gap-2 rounded-full grad-brand text-[16px] font-semibold text-white glow-brand transition active:scale-[.98]"
+            className="mt-3 flex h-14 w-full items-center justify-center gap-2 rounded-full grad-brand text-[16px] font-semibold text-ink glow-brand transition active:scale-[.98]"
           >
             <Spark size={18} />
             {locked ? "Débloquer ce son" : `Soutenir ${artist.name}`}

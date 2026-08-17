@@ -64,7 +64,7 @@ export function DashboardView({
             onClick={() => setVue(id)}
             className={cx(
               "h-10 flex-1 rounded-full text-[13px] font-semibold transition",
-              vue === id ? "grad-brand text-white glow-brand" : "text-fg/50",
+              vue === id ? "grad-brand text-ink glow-brand" : "text-fg/50",
             )}
           >
             {label}
@@ -135,27 +135,22 @@ function AtelierView({
 
       {/* ---------------------------------------------------------- solde */}
       <section className="mt-4 rise">
-        {/* Aplat de marque : tout le contenu de la carte est blanc. */}
-        <div className="relative overflow-hidden rounded-[30px] grad-brand p-5 text-white glow-brand">
-          <div
-            className="absolute inset-0 opacity-45"
-            style={{
-              backgroundImage:
-                "radial-gradient(65% 60% at 90% 0%, rgba(255,255,255,.55), transparent 60%)",
-            }}
-          />
+        {/* Seul écran qui garde un aplat vif : c'est le moment de
+            récompense. Sur l'accent acide, tout le contenu passe en encre
+            sombre — du blanc y serait illisible. */}
+        <div className="relative overflow-hidden rounded-[30px] grad-brand p-5 text-ink glow-brand">
           <div className="relative">
-            <div className="flex items-center gap-2 text-[12px] text-white/75">
+            <div className="flex items-center gap-2 text-[12px] font-medium text-ink/65">
               <Wallet size={15} />
               Disponible au retrait
             </div>
-            <div className="mt-2 text-[38px] font-bold leading-none tabular-nums">
+            <div className="display mt-2 text-[46px] font-extrabold tabular-nums">
               {fcfa(balance.available, false)}
-              <span className="ml-2 text-[15px] font-normal opacity-70">
+              <span className="ml-2 text-[15px] font-semibold opacity-55">
                 FCFA
               </span>
             </div>
-            <div className="mt-1.5 text-[11.5px] text-white/70">
+            <div className="mt-1.5 text-[11.5px] font-medium text-ink/60">
               {fcfa(balance.gross)} reçus · commission{" "}
               {Math.round(COMMISSION_RATE * 100)} % déduite
             </div>
@@ -168,7 +163,7 @@ function AtelierView({
                 })
               }
               disabled={balance.available < MIN_PAYOUT || pending}
-              className="mt-4 h-12 w-full rounded-full bg-white text-[15px] font-semibold text-brand-300 transition active:scale-[.98] disabled:opacity-45 disabled:active:scale-100"
+              className="mt-4 h-12 w-full rounded-full bg-ink text-[15px] font-semibold text-fg transition active:scale-[.98] disabled:opacity-40 disabled:active:scale-100"
             >
               {pending
                 ? "Demande en cours…"
@@ -181,7 +176,7 @@ function AtelierView({
               {PAYMENT_METHODS.map((m) => (
                 <span
                   key={m.id}
-                  className="rounded-full bg-black/25 px-2.5 py-1 text-[10px] text-white/80"
+                  className="rounded-full bg-ink/12 px-2.5 py-1 text-[10px] font-semibold text-ink/70"
                 >
                   {m.label}
                 </span>
@@ -206,7 +201,7 @@ function AtelierView({
               aria-label="Copier le lien"
               className={cx(
                 "grid h-11 w-11 shrink-0 place-items-center rounded-xl transition active:scale-90",
-                copied ? "bg-gold-400 text-ink-950" : "grad-brand text-white",
+                copied ? "bg-gold-400 text-ink-950" : "grad-brand text-ink",
               )}
             >
               {copied ? <Check size={17} /> : <Copy size={16} />}
@@ -239,9 +234,9 @@ function AtelierView({
       <section className="mt-8">
         <button
           onClick={() => setUploadOpen(true)}
-          className="flex w-full items-center gap-3.5 rounded-[26px] grad-brand px-5 py-4 text-left text-white glow-brand transition active:scale-[.99]"
+          className="flex w-full items-center gap-3.5 rounded-[26px] grad-brand px-5 py-4 text-left text-ink glow-brand transition active:scale-[.99]"
         >
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/20 backdrop-blur-md">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-ink/12">
             <Plus size={20} />
           </span>
           <span className="min-w-0 flex-1">
@@ -421,7 +416,7 @@ function ProfileEditor({ artist }: { artist: Artist }) {
             <div className="text-[10.5px] uppercase tracking-[.14em] text-fg/40">
               Espace artiste
             </div>
-            <div className="text-[26px] font-bold leading-[1.05]">
+            <div className="display text-[30px] font-extrabold">
               <NameWithBadge name={artist.name} verified={artist.verified} />
             </div>
           </div>
@@ -588,7 +583,7 @@ function PencilButton({
       aria-label={label}
       disabled={busy}
       className={cx(
-        "grid place-items-center rounded-full bg-white text-fg/70 shadow-[0_4px_14px_-4px_rgba(24,15,36,.5)] ring-1 ring-fg/10 transition active:scale-90 disabled:opacity-60",
+        "grid place-items-center rounded-full bg-fg text-ink shadow-[0_4px_14px_-4px_rgba(0,0,0,.8)] transition active:scale-90 disabled:opacity-60",
         small ? "h-8 w-8" : "h-9 w-9",
         className,
       )}

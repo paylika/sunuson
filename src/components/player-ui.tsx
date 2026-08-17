@@ -105,7 +105,7 @@ export function TrackRow({
         className={cx(
           "grid h-10 w-10 shrink-0 place-items-center rounded-full transition active:scale-90",
           locked
-            ? "grad-brand text-white"
+            ? "grad-brand text-ink"
             : "glass text-fg/55 hover:text-brand-300",
         )}
       >
@@ -183,7 +183,7 @@ export function MiniPlayer({ bottom = 104 }: { bottom?: number }) {
           <button
             onClick={() => toggle(track, artist)}
             aria-label={playing ? "Pause" : "Lecture"}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full grad-brand text-white active:scale-90"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full grad-brand text-ink active:scale-90"
           >
             {playing ? <Pause size={17} /> : <Play size={17} />}
           </button>

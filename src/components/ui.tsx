@@ -160,7 +160,7 @@ export function Pill({
 }) {
   const tones = {
     glass: "glass text-fg/75",
-    brand: "grad-brand text-white",
+    brand: "grad-brand text-ink",
     gold: "bg-gold-400/15 text-gold-700 border border-gold-400/25",
   };
   return (
@@ -201,7 +201,7 @@ export function Button({
 }) {
   const variants = {
     brand:
-      "grad-brand text-white shadow-[0_10px_34px_-10px_rgba(224,78,200,.75)] active:scale-[.98]",
+      "grad-brand text-ink shadow-[0_10px_34px_-10px_rgba(224,78,200,.75)] active:scale-[.98]",
     glass: "glass text-fg active:scale-[.98]",
     ghost: "text-fg/70 hover:text-fg",
   };

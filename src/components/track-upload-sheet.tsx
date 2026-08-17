@@ -187,7 +187,7 @@ export function TrackUploadSheet({
             onClick={() => audioRef.current?.click()}
             className="mt-6 flex w-full items-center gap-3.5 rounded-2xl border border-dashed border-fg/20 bg-fg/[.03] px-4 py-4 text-left transition active:scale-[.99]"
           >
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl grad-brand text-white">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl grad-brand text-ink">
               <Upload size={17} />
             </span>
             <span className="min-w-0">
@@ -280,7 +280,7 @@ export function TrackUploadSheet({
                       className={cx(
                         "rounded-2xl px-3 py-3 text-left transition",
                         mode === id
-                          ? "grad-brand text-white"
+                          ? "grad-brand text-ink"
                           : "bg-fg/[.05] text-fg/70 active:scale-[.97]",
                       )}
                     >
@@ -333,7 +333,7 @@ export function TrackUploadSheet({
               className={cx(
                 "mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border transition",
                 rights
-                  ? "border-transparent grad-brand text-white"
+                  ? "border-transparent grad-brand text-ink"
                   : "border-fg/25",
               )}
             >
@@ -363,7 +363,7 @@ export function TrackUploadSheet({
           <button
             onClick={submit}
             disabled={!ready}
-            className="h-13 w-full rounded-full grad-brand text-[15.5px] font-semibold text-white glow-brand transition active:scale-[.98] disabled:opacity-40 disabled:shadow-none disabled:active:scale-100"
+            className="h-13 w-full rounded-full grad-brand text-[15.5px] font-semibold text-ink glow-brand transition active:scale-[.98] disabled:opacity-40 disabled:shadow-none disabled:active:scale-100"
           >
             {pending ? "Publication…" : "Publier le son"}
           </button>

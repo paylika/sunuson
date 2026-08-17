@@ -37,7 +37,7 @@ export function BottomNav() {
               className={cx(
                 "flex flex-1 flex-col items-center gap-1 rounded-[20px] py-2.5 transition",
                 active
-                  ? "grad-brand text-white glow-brand"
+                  ? "grad-brand text-ink glow-brand"
                   : "text-fg/45 active:scale-95",
               )}
             >

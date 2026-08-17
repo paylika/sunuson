@@ -1,34 +1,46 @@
 @import "tailwindcss";
 
 @theme {
-  /* Fond : blanc cassé très légèrement lavande. Le blanc pur écrase les
-     cartes et fait ressortir les bords — celui-ci les laisse respirer. */
-  --color-bg: #fbf9fe;
-  --color-card: #ffffff;
+  /* ------------------------------------------------------------- fond
+     Noir légèrement chaud plutôt que bleuté : les photos mal exposées —
+     la majorité de ce que déposeront les artistes — y respirent mieux. */
+  --color-bg: #0a0a0c;
+  --color-surface: #17181b;
+  --color-surface-2: #212226;
 
-  /* Encre. Tout le texte et les surfaces neutres en dérivent par opacité. */
-  --color-fg: #180f24;
+  /* Encre = tout ce qui se pose SUR le fond sombre. */
+  --color-fg: #ffffff;
 
-  /* Sert de texte POSÉ SUR un aplat clair (badges dorés). */
-  --color-ink-950: #12091c;
+  /* Encre inverse = tout ce qui se pose sur l'accent ou sur du blanc.
+     Le jaune acide exige un texte sombre : du blanc dessus est illisible. */
+  --color-ink: #0a0a0c;
+  --color-ink-950: #0a0a0c;
 
-  /* Accent magenta -> violet.
-     brand-300 est la seule nuance pensée pour du TEXTE sur fond clair ;
-     les autres servent aux dégradés et aux aplats. */
-  --color-brand-300: #a3179a;
-  --color-brand-400: #e879d6;
-  --color-brand-500: #e04ec8;
-  --color-brand-600: #a855f7;
-  --color-brand-700: #7c3aed;
-  --color-brand-800: #5b21b6;
+  /* ----------------------------------------------------------- accent
+     Une seule couleur vive dans toute l'application, réservée à l'action
+     qui rapporte : soutenir. Tout le reste est blanc ou gris. C'est ce qui
+     fait que la pochette de l'artiste devient le point le plus coloré de
+     l'écran — l'interface se tait, l'artiste parle. */
+  --color-acid-300: #ecf98a;
+  --color-acid-400: #e6f76a;
+  --color-acid-500: #ddf247;
+  --color-acid-600: #c4d92f;
+  --color-acid-700: #9aab1f;
 
-  /* Or : le clair pour les fonds, le foncé pour le texte sur blanc. */
-  --color-gold-400: #eaa908;
-  --color-gold-500: #d19406;
-  --color-gold-700: #8a5a00;
+  /* Alias conservés : le reste du code parle encore de « brand » et de
+     « gold ». Les faire pointer ici évite une réécriture inutile. */
+  --color-brand-300: #ddf247;
+  --color-brand-400: #e6f76a;
+  --color-brand-500: #ddf247;
+  --color-brand-600: #c4d92f;
+  --color-brand-700: #9aab1f;
+  --color-brand-800: #7d8a19;
 
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
+  --color-gold-400: #ddf247;
+  --color-gold-500: #c4d92f;
+  --color-gold-700: #ddf247;
+
+  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
 }
 
 /* ---------------------------------------------------------------- base */
@@ -51,17 +63,27 @@ body {
   min-height: 100dvh;
 }
 
-/* Les titres respirent mieux resserrés ; c'est ce qui donne le côté
-   « produit fini » plutôt que « page web ». */
+/* Le vrai geste typographique n'est pas la police, c'est l'échelle :
+   titres larges et resserrés, métadonnées minuscules. C'est ce qui sépare
+   une affiche d'une page web. */
 h1,
 h2,
 h3 {
-  letter-spacing: -0.025em;
+  letter-spacing: -0.03em;
+  font-weight: 800;
+}
+
+/* Axe de largeur d'Archivo : réservé aux grands titres. Illisible en
+   dessous de 24 px, donc jamais appliqué au texte courant. */
+.display {
+  font-stretch: 112%;
+  letter-spacing: -0.035em;
+  line-height: 0.98;
 }
 
 ::selection {
-  background: var(--color-brand-500);
-  color: #fff;
+  background: var(--color-acid-500);
+  color: var(--color-ink);
 }
 
 ::-webkit-scrollbar {
@@ -71,58 +93,42 @@ h3 {
 
 /* ------------------------------------------------------------ ambiance */
 
-/* Nappe de couleur diffuse : trois halos qui se recouvrent, jamais un
-   dégradé linéaire — c'est ce qui évite l'effet « fond de template ». */
+/* Presque rien : une seule respiration en haut d'écran. Sur fond sombre,
+   trop de halos donnent un rendu sale. */
 .ambient {
   position: fixed;
   inset: 0;
   z-index: -2;
   background:
-    radial-gradient(58% 38% at 50% -8%, #c084fc4d 0%, transparent 68%),
-    radial-gradient(45% 30% at 102% 12%, #f472e042 0%, transparent 72%),
-    radial-gradient(50% 34% at -8% 46%, #818cf838 0%, transparent 72%),
-    radial-gradient(60% 40% at 70% 100%, #e879d62e 0%, transparent 70%),
+    radial-gradient(60% 30% at 50% -10%, rgba(221, 242, 71, 0.07) 0%, transparent 70%),
     var(--color-bg);
 }
 
-/* Grain léger : casse les aplats de dégradé sans salir le blanc. */
 .grain::after {
   content: "";
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  opacity: 0.045;
-  mix-blend-mode: multiply;
+  opacity: 0.035;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
 }
 
-/* -------------------------------------------------------------- verre */
+/* -------------------------------------------------------------- surfaces */
 
-/* Sur fond clair, la profondeur vient de l'ombre, pas de la bordure.
-   Deux ombres superposées : une courte qui pose la carte, une longue et
-   colorée qui la fait flotter. */
+/* Sur fond sombre la profondeur ne vient plus de l'ombre — elle ne se voit
+   pas — mais d'une surface légèrement plus claire et d'un liseré fin. */
 .glass {
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(24, 15, 36, 0.05);
-  box-shadow:
-    0 1px 2px rgba(24, 15, 36, 0.05),
-    0 12px 32px -16px rgba(88, 28, 135, 0.28);
-  backdrop-filter: blur(20px) saturate(165%);
-  -webkit-backdrop-filter: blur(20px) saturate(165%);
+  background: var(--color-surface);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .glass-strong {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(24, 15, 36, 0.06);
-  box-shadow:
-    0 1px 2px rgba(24, 15, 36, 0.06),
-    0 28px 60px -24px rgba(88, 28, 135, 0.42);
-  backdrop-filter: blur(28px) saturate(175%);
-  -webkit-backdrop-filter: blur(28px) saturate(175%);
+  background: var(--color-surface-2);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.9);
 }
 
-/* Liseré supérieur violet : un liseré blanc serait invisible ici. */
 .sheen {
   position: relative;
   overflow: hidden;
@@ -135,40 +141,37 @@ h3 {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(168, 85, 247, 0.28),
+    rgba(255, 255, 255, 0.14),
     transparent
   );
 }
 
-/* ---------------------------------------------------------- dégradés */
+/* ------------------------------------------------------------- accent */
 
+/* Aplat franc, pas de dégradé : un dégradé sur un accent aussi saturé
+   salit la couleur et affaiblit le seul point vif de l'écran. */
 .grad-brand {
-  background-image: linear-gradient(135deg, #f472e0 0%, #e04ec8 45%, #7c3aed 100%);
+  background-color: var(--color-acid-500);
+  background-image: none;
 }
 
-/* Halo coloré sous un élément de marque : donne le relief que la seule
-   couleur de fond ne produit pas. */
 .glow-brand {
-  box-shadow:
-    0 10px 30px -10px rgba(224, 78, 200, 0.55),
-    0 20px 60px -24px rgba(124, 58, 237, 0.5);
+  box-shadow: 0 12px 34px -14px rgba(221, 242, 71, 0.55);
 }
 
 .text-grad {
-  background-image: linear-gradient(100deg, #e04ec8 0%, #a855f7 50%, #6d28d9 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  background-image: none;
+  color: var(--color-acid-500);
 }
 
-/* Pochette : dégradé de marque + voile sombre pour que le texte blanc
-   posé dessus reste lisible quelle que soit la couleur de l'artiste. */
+/* Voile sombre sur les pochettes : le texte blanc posé dessus reste
+   lisible quelle que soit la photo déposée. */
 .media-veil {
   background: linear-gradient(
     to top,
-    rgba(10, 4, 18, 0.9) 0%,
-    rgba(10, 4, 18, 0.35) 45%,
-    rgba(10, 4, 18, 0) 100%
+    rgba(10, 10, 12, 0.96) 0%,
+    rgba(10, 10, 12, 0.45) 45%,
+    rgba(10, 10, 12, 0.05) 100%
   );
 }
 

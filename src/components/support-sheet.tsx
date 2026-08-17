@@ -232,13 +232,15 @@ function MontantStep({
       </div>
 
       {fixedAmount ? (
-        <div className="mt-6 rounded-[26px] grad-brand p-5 text-center text-white glow-brand">
-          <div className="text-[11.5px] font-medium text-white/75">
+        <div className="mt-6 rounded-[26px] grad-brand p-5 text-center text-ink glow-brand">
+          <div className="text-[11.5px] font-semibold text-ink/65">
             Prix fixé par l&apos;artiste
           </div>
-          <div className="mt-1.5 text-[38px] font-bold leading-none tabular-nums">
+          <div className="display mt-1.5 text-[42px] font-extrabold tabular-nums">
             {fcfa(fixedAmount, false)}
-            <span className="ml-2 text-[14px] font-normal opacity-75">FCFA</span>
+            <span className="ml-2 text-[14px] font-semibold opacity-60">
+              FCFA
+            </span>
           </div>
         </div>
       ) : (
@@ -257,7 +259,7 @@ function MontantStep({
               className={cx(
                 "h-16 rounded-2xl text-[15px] font-semibold tabular-nums transition",
                 active
-                  ? "grad-brand text-white shadow-[0_10px_30px_-12px_rgba(224,78,200,.9)]"
+                  ? "grad-brand text-ink shadow-[0_10px_30px_-12px_rgba(224,78,200,.9)]"
                   : "glass text-fg/80 active:scale-[.97]",
               )}
             >
@@ -271,7 +273,7 @@ function MontantStep({
           className={cx(
             "flex h-16 items-center rounded-2xl px-3 transition",
             custom
-              ? "grad-brand text-white shadow-[0_10px_30px_-12px_rgba(224,78,200,.9)]"
+              ? "grad-brand text-ink shadow-[0_10px_30px_-12px_rgba(224,78,200,.9)]"
               : "glass",
           )}
         >
@@ -399,7 +401,7 @@ function PaiementStep({
                 className={cx(
                   "grid h-6 w-6 place-items-center rounded-full border transition",
                   active
-                    ? "border-transparent grad-brand text-white"
+                    ? "border-transparent grad-brand text-ink"
                     : "border-fg/25",
                 )}
               >
@@ -448,7 +450,7 @@ function FaitStep({
 }) {
   return (
     <div className="py-4 text-center">
-      <div className="mx-auto grid h-20 w-20 place-items-center rounded-full grad-brand text-white shadow-[0_16px_50px_-12px_rgba(224,78,200,.9)]">
+      <div className="mx-auto grid h-20 w-20 place-items-center rounded-full grad-brand text-ink shadow-[0_16px_50px_-12px_rgba(224,78,200,.9)]">
         <Check size={34} />
       </div>
 

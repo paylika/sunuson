@@ -31,7 +31,7 @@ export function HomeView({
       {/* --------------------------------------------------------- entête */}
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <span className="grid h-10 w-10 place-items-center rounded-2xl grad-brand text-white glow-brand">
+          <span className="grid h-10 w-10 place-items-center rounded-2xl grad-brand text-ink glow-brand">
             <Music size={18} />
           </span>
           <div>
@@ -44,7 +44,7 @@ export function HomeView({
           className="relative grid h-11 w-11 place-items-center rounded-full glass text-fg/60"
         >
           <Bell size={18} />
-          <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-brand-500 ring-2 ring-white" />
+          <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-acid-500 ring-2 ring-bg" />
         </button>
       </header>
 
@@ -52,7 +52,7 @@ export function HomeView({
       {featured && (
         <section className="mt-6 rise">
           {/* Carte média : voile sombre sur la pochette, donc texte blanc. */}
-          <div className="relative overflow-hidden rounded-[34px] text-white shadow-[0_30px_70px_-30px_rgba(88,28,135,.65)]">
+          <div className="relative overflow-hidden rounded-[34px] text-white shadow-[0_30px_70px_-30px_rgba(0,0,0,.9)]">
             <Cover
               gradient={featured.gradient}
               src={featured.coverUrl}
@@ -72,7 +72,7 @@ export function HomeView({
             </div>
 
             <div className="absolute inset-x-5 bottom-5">
-              <h2 className="text-[36px] font-bold leading-[1.02]">
+              <h2 className="display text-[40px] font-extrabold">
                 <NameWithBadge name={featured.name} verified={featured.verified} />
               </h2>
 
@@ -90,7 +90,7 @@ export function HomeView({
                 {playable && (
                   <button
                     onClick={() => toggle(playable, featured)}
-                    className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-white text-brand-300 shadow-[0_10px_28px_-8px_rgba(0,0,0,.6)] transition active:scale-90"
+                    className="grid h-14 w-14 shrink-0 place-items-center rounded-full grad-brand text-ink glow-brand transition active:scale-90"
                     aria-label={featuredPlaying ? "Pause" : "Écouter"}
                   >
                     {featuredPlaying ? <Pause size={20} /> : <Play size={20} />}
@@ -154,9 +154,9 @@ export function HomeView({
                     i === 0
                       ? "bg-gold-400 text-ink-950"
                       : i === 1
-                        ? "bg-fg/85 text-white"
+                        ? "bg-fg/85 text-ink"
                         : i === 2
-                          ? "grad-brand text-white"
+                          ? "grad-brand text-ink"
                           : "bg-fg/[.07] text-fg/45",
                   )}
                 >
@@ -192,36 +192,27 @@ export function HomeView({
 
       {/* --------------------------------------------------------- artiste */}
       <section className="mt-8">
-        <div className="relative overflow-hidden rounded-[30px] grad-brand p-6 text-white glow-brand">
-          <div
-            className="absolute inset-0 opacity-50"
-            style={{
-              backgroundImage:
-                "radial-gradient(70% 60% at 100% 0%, rgba(255,255,255,.5), transparent 60%)",
-            }}
-          />
-          <div className="relative">
-            <span className="inline-flex rounded-full bg-white/20 px-3 py-1.5 text-[11px] font-semibold leading-none backdrop-blur-md">
-              Tu es artiste ?
-            </span>
-            <h3 className="mt-3.5 text-[24px] font-bold leading-[1.15]">
-              Ton lien, ta musique,
-              <br />
-              ton argent.
-            </h3>
-            <p className="mt-2.5 text-[13px] leading-relaxed text-white/80">
-              Tu déposes tes sons, tu récupères ton lien, tu le mets dans ta
-              bio. Tes fans écoutent gratuitement et t&apos;envoient de
-              l&apos;argent en deux clics.
-            </p>
-            <Link
-              href="/dashboard"
-              className="mt-5 flex h-13 items-center justify-center gap-2 rounded-full bg-white text-[15px] font-semibold text-brand-300 transition active:scale-[.98]"
-            >
-              Ouvrir mon espace
-              <ChevronRight size={16} />
-            </Link>
-          </div>
+        <div className="relative overflow-hidden rounded-[30px] grad-brand p-6 text-ink glow-brand">
+          <span className="inline-flex rounded-full bg-ink/12 px-3 py-1.5 text-[11px] font-semibold leading-none">
+            Tu es artiste ?
+          </span>
+          <h3 className="display mt-3.5 text-[30px] font-extrabold">
+            Ton lien, ta musique,
+            <br />
+            ton argent.
+          </h3>
+          <p className="mt-3 text-[13px] leading-relaxed text-ink/70">
+            Tu déposes tes sons, tu récupères ton lien, tu le mets dans ta bio.
+            Tes fans écoutent gratuitement et t&apos;envoient de l&apos;argent
+            en deux clics.
+          </p>
+          <Link
+            href="/dashboard"
+            className="mt-5 flex h-13 items-center justify-center gap-2 rounded-full bg-ink text-[15px] font-semibold text-fg transition active:scale-[.98]"
+          >
+            Ouvrir mon espace
+            <ChevronRight size={16} />
+          </Link>
         </div>
       </section>
     </>

@@ -76,9 +76,9 @@ export function SupporterWall({ supports }: { supports: Support[] }) {
                   i === 0
                     ? "bg-gold-400 text-ink-950"
                     : i === 1
-                      ? "bg-fg/85 text-white"
+                      ? "bg-fg/85 text-ink"
                       : i === 2
-                        ? "grad-brand text-white"
+                        ? "grad-brand text-ink"
                         : "bg-fg/[.07] text-fg/45",
                 )}
               >

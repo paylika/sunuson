@@ -39,7 +39,7 @@ export function PlaylistButton({
         "grid shrink-0 place-items-center rounded-full transition active:scale-90",
         box,
         saved
-          ? "grad-brand text-white"
+          ? "grad-brand text-ink"
           : tone === "onMedia"
             ? "bg-black/30 text-white backdrop-blur-md"
             : "glass text-fg/45",
