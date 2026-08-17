@@ -22,13 +22,18 @@
   // deploiement : un bloc vide les effacait, et le Worker tournait sans savoir
   // ou etait la base. Les declarer dans le code les rend deterministes.
   //
-  // La cle anon est concue pour etre publique — elle part dans le navigateur
-  // sur toute application Supabase, et c'est la RLS qui protege les donnees.
-  // Les vrais secrets (service_role, webhook) restent des Secrets Cloudflare :
-  // wrangler n'y touche pas.
+  // La cle publishable est concue pour etre publique — elle part dans le
+  // navigateur sur toute application Supabase, et c'est la RLS qui protege les
+  // donnees. Les vrais secrets (secret key, webhook) restent des Secrets
+  // Cloudflare : wrangler n'y touche pas.
+  //
+  // Format sb_publishable_*, pas l'ancien JWT eyJ* : les cles JWT ont ete
+  // desactivees dans Supabase apres la fuite de la service_role dans un log de
+  // build. Une cle eyJ* ici renverrait « Legacy API keys are disabled » sur
+  // toutes les pages.
   "vars": {
     "SUPABASE_URL": "https://zzlloccetjzfmrsffcqh.supabase.co",
-    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp6bGxvY2NldGp6Zm1yc2ZmY3FoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5NTg0OTEsImV4cCI6MjEwMjUzNDQ5MX0.V60WoD8wvnv_qodqhD4rcFkpcgD5tbufmPmWRuL2jKY"
+    "SUPABASE_ANON_KEY": "sb_publishable_weMpNcYCOnS-P9GhNUv6Og_8zn3h-zw"
   }
 
   // Pas de binding R2 pour l'instant : les fichiers vivent dans Supabase
