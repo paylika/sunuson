@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "./db";
-import { searchArtists } from "./queries";
+import { getSupportersOfTrack, searchArtists } from "./queries";
 import { MAX_SUPPORT, MIN_SUPPORT, type PaymentMethod } from "./config";
 import {
   checkImageFile,
@@ -293,6 +293,14 @@ export async function createTrack(formData: FormData): Promise<ActionResult> {
 
   revalidateAll(artistSlug);
   return { ok: true };
+}
+
+/** Noms des fans ayant soutenu un morceau, pour l'écran de lecture. */
+export async function trackSupporters(
+  trackId: string,
+): Promise<{ name: string; createdAt: string }[]> {
+  if (!trackId) return [];
+  return getSupportersOfTrack(trackId);
 }
 
 /** Alimente le champ « @ » du featuring. */

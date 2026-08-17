@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { BottomNav } from "./bottom-nav";
 import { MiniPlayer } from "./player-ui";
+import { PlayerSheet } from "./player-sheet";
 
 /**
  * Cadre commun : colonne mobile centrée, nav flottante, lecteur persistant.
@@ -13,6 +14,7 @@ export function Shell({ children }: { children: ReactNode }) {
       {children}
       <MiniPlayer />
       <BottomNav />
+      <PlayerSheet />
     </div>
   );
 }

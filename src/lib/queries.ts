@@ -128,17 +128,24 @@ async function collaboratorsFor(
   const byTrack = new Map<string, Collaborator[]>();
   if (trackIds.length === 0) return byTrack;
 
-  const rows = unwrap(
-    await client()
-      .from("track_collaborators")
-      .select(
-        "id, track_id, artist_id, display_name, share_percent, artists(slug, avatar_key, gradient_from, gradient_to)",
-      )
-      .in("track_id", trackIds)
-      .returns<CollabRow[]>(),
-  );
+  const res = await client()
+    .from("track_collaborators")
+    .select(
+      "id, track_id, artist_id, display_name, share_percent, artists(slug, avatar_key, gradient_from, gradient_to)",
+    )
+    .in("track_id", trackIds)
+    .returns<CollabRow[]>();
 
-  for (const r of rows) {
+  // Le featuring est une donnée d'appoint : s'il manque, un morceau perd sa
+  // mention « feat. », il ne disparaît pas. Faire tomber toute la page pour
+  // ça — typiquement quand la migration n'a pas encore été jouée — serait
+  // disproportionné. Les autres lectures restent strictes.
+  if (res.error) {
+    console.warn(`Featuring indisponible : ${res.error.message}`);
+    return byTrack;
+  }
+
+  for (const r of res.data ?? []) {
     const entry: Collaborator = {
       id: r.id,
       artistId: r.artist_id ?? undefined,
@@ -326,6 +333,39 @@ export async function getSupportsByArtist(artistId: string): Promise<Support[]> 
       .returns<SupportRow[]>(),
   );
   return rows.map(toSupport);
+}
+
+/**
+ * Qui a soutenu CE morceau. Sans montant : la liste sert de preuve sociale,
+ * comme des « j'aime » — voir des noms pousse à en ajouter un.
+ */
+export async function getSupportersOfTrack(
+  trackId: string,
+): Promise<{ name: string; createdAt: string }[]> {
+  const rows = unwrap(
+    await client()
+      .from("supports")
+      .select("supporter_name, created_at")
+      .eq("track_id", trackId)
+      .eq("status", "paid")
+      .order("created_at", { ascending: false })
+      .limit(60)
+      .returns<{ supporter_name: string; created_at: string }[]>(),
+  );
+
+  // Un même fan qui soutient trois fois n'apparaît qu'une fois.
+  const seen = new Set<string>();
+  const out: { name: string; createdAt: string }[] = [];
+  for (const r of rows) {
+    const key = r.supporter_name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      name: r.supporter_name,
+      createdAt: new Date(r.created_at).toISOString(),
+    });
+  }
+  return out;
 }
 
 /* ------------------------------------------------------------------ soldes */

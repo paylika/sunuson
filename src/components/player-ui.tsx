@@ -139,7 +139,8 @@ function Equalizer() {
 /* --------------------------------------------------------- mini lecteur */
 
 export function MiniPlayer({ bottom = 104 }: { bottom?: number }) {
-  const { track, artist, playing, position, toggle, seek } = usePlayer();
+  const { track, artist, playing, position, toggle, seek, expand } =
+    usePlayer();
   if (!track || !artist) return null;
 
   const pct = Math.min(100, (position / track.duration) * 100);
@@ -151,24 +152,32 @@ export function MiniPlayer({ bottom = 104 }: { bottom?: number }) {
     >
       <div className="glass-strong sheen overflow-hidden rounded-[22px] rise">
         <div className="flex items-center gap-3 p-2.5">
-          <Cover
-            gradient={artist.gradient}
-            src={track.coverUrl}
-            rounded="rounded-xl"
-            className="h-11 w-11 shrink-0"
-          />
-
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[13.5px] font-medium leading-tight">
-              {track.title}
-            </div>
-            <div className="truncate text-[11.5px] text-fg/45">
-              {artist.name}
-            </div>
-          </div>
+          {/* Toute la partie gauche ouvre l'écran de lecture : c'est le geste
+              attendu sur un lecteur, et c'est là que le fan voit qui soutient
+              déjà le morceau. */}
+          <button
+            onClick={expand}
+            aria-label="Ouvrir le lecteur"
+            className="flex min-w-0 flex-1 items-center gap-3 text-left"
+          >
+            <Cover
+              gradient={artist.gradient}
+              src={track.coverUrl}
+              rounded="rounded-xl"
+              className="h-11 w-11 shrink-0"
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13.5px] font-medium leading-tight">
+                {track.title}
+              </span>
+              <span className="block truncate text-[11.5px] text-fg/45">
+                {artist.name}
+              </span>
+            </span>
+          </button>
 
           <span className="shrink-0 text-[11px] tabular-nums text-fg/40">
-            {duration(position)} / {duration(track.duration)}
+            {duration(position)}
           </span>
 
           <button

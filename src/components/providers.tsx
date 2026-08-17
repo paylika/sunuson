@@ -25,6 +25,10 @@ type PlayerState = {
   resume: () => void;
   seek: (seconds: number) => void;
   stop: () => void;
+  /** Écran de lecture plein écran ouvert ou non. */
+  expanded: boolean;
+  expand: () => void;
+  collapse: () => void;
 };
 
 const PlayerCtx = createContext<PlayerState | null>(null);
@@ -36,6 +40,7 @@ function PlayerProvider({ children }: { children: ReactNode }) {
   } | null>(null);
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
+  const [expanded, setExpanded] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const track = current?.track ?? null;
@@ -101,9 +106,14 @@ function PlayerProvider({ children }: { children: ReactNode }) {
         setPlaying(false);
         setCurrent(null);
         setPosition(0);
+        setExpanded(false);
       },
+      expanded,
+      // Rien à agrandir tant qu'aucun morceau n'est chargé.
+      expand: () => setExpanded(current !== null),
+      collapse: () => setExpanded(false),
     }),
-    [track, current, playing, position, toggle, seek],
+    [track, current, playing, position, toggle, seek, expanded],
   );
 
   return (
