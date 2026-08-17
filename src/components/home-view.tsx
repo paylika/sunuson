@@ -6,11 +6,10 @@ import { compact } from "@/lib/format";
 import type { Artist, Track } from "@/lib/types";
 import { usePlayer } from "./providers";
 import { Avatar, Cover, cx, Glass, NameWithBadge, SectionTitle } from "./ui";
+import { MarkTile } from "./logo";
 import {
-  Bell,
   ChevronRight,
   Flame,
-  Music,
   Pause,
   Play,
   Spark,
@@ -40,21 +39,20 @@ export function HomeView({
       {/* --------------------------------------------------------- entête */}
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <span className="grid h-10 w-10 place-items-center rounded-2xl grad-brand text-ink glow-brand">
-            <Music size={18} />
-          </span>
+          <MarkTile size={40} />
           <div>
-            <div className="text-[20px] font-bold leading-none">{APP_NAME}</div>
+            <div className="text-[20px] font-extrabold leading-none tracking-[-.03em]">
+              {APP_NAME}
+            </div>
             <p className="mt-1 text-[11.5px] text-fg/45">{APP_TAGLINE}</p>
           </div>
         </div>
-        <button
-          aria-label="Notifications"
-          className="relative grid h-11 w-11 place-items-center rounded-full glass text-fg/60"
+        <Link
+          href="/connexion"
+          className="rounded-full glass px-4 py-2.5 text-[12.5px] font-semibold text-fg/80 transition active:scale-95"
         >
-          <Bell size={18} />
-          <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-acid-500 ring-2 ring-bg" />
-        </button>
+          Connexion
+        </Link>
       </header>
 
       {/* ------------------------------------------------------- à la une */}
