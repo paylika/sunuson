@@ -1,10 +1,7 @@
-/**
- * Réglages produit. Le nom n'est pas arrêté : il ne vit qu'ici, un seul
- * endroit à changer le jour où on tranche.
- */
-export const APP_NAME = "SUNU";
+/** Réglages produit. */
+export const APP_NAME = "Amplifan";
 export const APP_TAGLINE = "Écoute libre. Soutien direct.";
-export const APP_DOMAIN = "sunu.sn";
+export const APP_DOMAIN = "amplifan.app";
 
 /** Part que la plateforme retient sur chaque soutien. */
 export const COMMISSION_RATE = 0.15;

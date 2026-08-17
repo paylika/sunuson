@@ -1,10 +1,14 @@
-# SUNU — MVP
+# Amplifan — MVP
 
 Plateforme d'écoute gratuite pour le rap sénégalais, avec soutien direct par
-mobile money.
+mobile money. `amplifan.app`
 
-> **Le nom n'est pas arrêté.** Il ne vit qu'à un seul endroit :
-> `src/lib/config.ts` (`APP_NAME`, `APP_DOMAIN`). Une ligne à changer.
+> Le nom vit dans `src/lib/config.ts` (`APP_NAME`, `APP_DOMAIN`).
+>
+> **Le Worker Cloudflare et le dépôt GitHub s'appellent encore `sunuson`.**
+> C'est volontaire : renommer le Worker en crée un nouveau à une autre URL et
+> abandonne celui qui est déployé. À faire au moment de brancher le domaine,
+> pas avant.
 
 ## Le principe
 
