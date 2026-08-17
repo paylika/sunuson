@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { trackSupporters } from "@/lib/actions";
+import type { TrackSupporter } from "@/lib/queries";
 import { duration, initials } from "@/lib/format";
 import { usePlayer, useUnlock } from "./providers";
 import { PlaylistButton } from "./playlist-button";
 import { SupportSheet } from "./support-sheet";
+import { Waveform } from "./waveform";
 import { Cover, cx } from "./ui";
 import {
   ChevronLeft,
@@ -44,7 +46,7 @@ export function PlayerSheet() {
   } = usePlayer();
   const { isUnlocked } = useUnlock();
 
-  const [supporters, setSupporters] = useState<{ name: string }[]>([]);
+  const [supporters, setSupporters] = useState<TrackSupporter[]>([]);
   const [loading, setLoading] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -81,7 +83,6 @@ export function PlayerSheet() {
 
   if (!expanded || !track || !artist) return null;
 
-  const pct = Math.min(100, (position / track.duration) * 100);
   const locked = track.locked && !isUnlocked(track.id);
 
   async function share() {
@@ -170,27 +171,14 @@ export function PlayerSheet() {
         </div>
 
         {/* ---------------------------------------------------- progression */}
-        <div className="mt-6">
-          <div
-            className="relative h-1.5 cursor-pointer rounded-full bg-fg/10"
-            onClick={(e) => {
-              const r = e.currentTarget.getBoundingClientRect();
-              seek(((e.clientX - r.left) / r.width) * track.duration);
-            }}
-          >
-            <div
-              className="absolute inset-y-0 left-0 rounded-full grad-brand"
-              style={{ width: `${pct}%` }}
-            />
-            <div
-              className="absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-white shadow-[0_2px_8px_rgba(24,15,36,.4)] ring-1 ring-fg/10"
-              style={{ left: `calc(${pct}% - 7px)` }}
-            />
-          </div>
-          <div className="mt-2 flex justify-between text-[11px] tabular-nums text-fg/40">
-            <span>{duration(position)}</span>
-            <span>{duration(track.duration)}</span>
-          </div>
+        <div className="mt-5">
+          <Waveform
+            trackId={track.id}
+            position={position}
+            total={track.duration}
+            markers={supporters}
+            onSeek={seek}
+          />
         </div>
 
         {/* --------------------------------------------------------- lecture */}
@@ -258,6 +246,7 @@ export function PlayerSheet() {
       <SupportSheet
         artist={artist}
         track={track}
+        positionSec={Math.round(position)}
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
       />
@@ -271,7 +260,7 @@ function SupportersStrip({
   supporters,
   loading,
 }: {
-  supporters: { name: string }[];
+  supporters: TrackSupporter[];
   loading: boolean;
 }) {
   if (loading) {

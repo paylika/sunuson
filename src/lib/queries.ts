@@ -381,23 +381,46 @@ export async function getTracksByIds(
  * Qui a soutenu CE morceau. Sans montant : la liste sert de preuve sociale,
  * comme des « j'aime » — voir des noms pousse à en ajouter un.
  */
+export type TrackSupporter = {
+  name: string;
+  createdAt: string;
+  /** Seconde du morceau où le soutien a été envoyé. Absente si inconnue. */
+  positionSec?: number;
+};
+
 export async function getSupportersOfTrack(
   trackId: string,
-): Promise<{ name: string; createdAt: string }[]> {
-  const rows = unwrap(
-    await client()
+): Promise<TrackSupporter[]> {
+  const supabase = client();
+  const base = "supporter_name, created_at";
+
+  type Row = {
+    supporter_name: string;
+    created_at: string;
+    position_sec?: number | null;
+  };
+
+  const query = (cols: string) =>
+    supabase
       .from("supports")
-      .select("supporter_name, created_at")
+      .select(cols)
       .eq("track_id", trackId)
       .eq("status", "paid")
       .order("created_at", { ascending: false })
       .limit(60)
-      .returns<{ supporter_name: string; created_at: string }[]>(),
-  );
+      .returns<Row[]>();
+
+  // On demande la position, et on retombe sur la requête sans elle si la
+  // colonne n'existe pas encore. Le repère sur l'onde disparaît alors, mais
+  // la liste des soutiens reste — une migration en retard ne doit pas vider
+  // l'écran de lecture.
+  let res = await query(`${base}, position_sec`);
+  if (res.error) res = await query(base);
+  const rows = unwrap(res);
 
   // Un même fan qui soutient trois fois n'apparaît qu'une fois.
   const seen = new Set<string>();
-  const out: { name: string; createdAt: string }[] = [];
+  const out: TrackSupporter[] = [];
   for (const r of rows) {
     const key = r.supporter_name.toLowerCase();
     if (seen.has(key)) continue;
@@ -405,6 +428,7 @@ export async function getSupportersOfTrack(
     out.push({
       name: r.supporter_name,
       createdAt: new Date(r.created_at).toISOString(),
+      positionSec: r.position_sec ?? undefined,
     });
   }
   return out;

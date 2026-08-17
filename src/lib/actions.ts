@@ -38,6 +38,8 @@ export async function createSupport(input: {
   amount: number;
   message?: string;
   method: PaymentMethod;
+  /** Seconde du morceau au moment de l'envoi, pour l'épingler sur l'onde. */
+  positionSec?: number;
 }): Promise<SupportResult> {
   const amount = Math.round(Number(input.amount));
 
@@ -88,6 +90,10 @@ export async function createSupport(input: {
       method: input.method,
       status: "pending",
       provider_ref: `demo_${crypto.randomUUID()}`,
+      position_sec:
+        input.trackId && Number.isFinite(input.positionSec)
+          ? Math.max(0, Math.round(input.positionSec as number))
+          : null,
     })
     .select("id")
     .single();
@@ -345,10 +351,8 @@ export async function playlistTracks(ids: string[]) {
   return getTracksByIds(ids.filter((id) => typeof id === "string"));
 }
 
-/** Noms des fans ayant soutenu un morceau, pour l'écran de lecture. */
-export async function trackSupporters(
-  trackId: string,
-): Promise<{ name: string; createdAt: string }[]> {
+/** Fans ayant soutenu un morceau, avec l'instant où ils l'ont fait. */
+export async function trackSupporters(trackId: string) {
   if (!trackId) return [];
   return getSupportersOfTrack(trackId);
 }

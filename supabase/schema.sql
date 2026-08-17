@@ -361,3 +361,13 @@ left join (
   select artist_id, sum(amount)::int as withdrawn
   from public.payouts group by artist_id
 ) p on p.artist_id = a.id;
+
+-- =============================================================================
+--  Forme d'onde : à quel instant du morceau le fan a soutenu
+-- =============================================================================
+
+-- Position de lecture, en secondes, au moment de l'envoi. Null quand le
+-- soutien vient de la page de l'artiste et non d'un morceau en cours.
+-- C'est ce qui permet d'épingler chaque fan sur la forme d'onde, et de
+-- montrer à l'artiste quel passage déclenche les gens.
+alter table public.supports add column if not exists position_sec integer;

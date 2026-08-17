@@ -22,11 +22,15 @@ type Step = "montant" | "paiement" | "fait";
 export function SupportSheet({
   artist,
   track,
+  positionSec,
   open,
   onClose,
 }: {
   artist: Artist;
   track?: Track;
+  /** Seconde du morceau en cours, quand le soutien part de l'écran de
+      lecture. C'est elle qui épingle le fan sur la forme d'onde. */
+  positionSec?: number;
   open: boolean;
   onClose: () => void;
 }) {
@@ -98,6 +102,7 @@ export function SupportSheet({
       amount,
       message: message.trim() || undefined,
       method,
+      positionSec,
     });
 
     setPending(false);
