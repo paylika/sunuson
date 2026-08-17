@@ -80,13 +80,25 @@ apparaît dans l'onglet **Soutiens**.
 
 ## Sécurité — les deux clés
 
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — publique, **bridée par la RLS**. L'app s'en
-  sert pour *toutes* les lectures, y compris côté serveur. C'est volontaire :
-  si une policy est mal écrite, la fuite reste bornée à ce que le public a déjà
-  le droit de voir.
-- `SUPABASE_SERVICE_ROLE_KEY` — **contourne toute la RLS**. Réservée au seed et
-  au futur webhook de paiement. Jamais préfixée `NEXT_PUBLIC_`, jamais
-  committée, jamais collée dans un chat.
+- `SUPABASE_ANON_KEY` — format `sb_publishable_*`. Publique, **bridée par la
+  RLS**. L'app s'en sert pour *toutes* les lectures, y compris côté serveur.
+  C'est volontaire : si une policy est mal écrite, la fuite reste bornée à ce
+  que le public a déjà le droit de voir. Elle est donc écrite en clair dans
+  `wrangler.jsonc`, sans que ce soit une négligence.
+- `SUPABASE_SERVICE_ROLE_KEY` — format `sb_secret_*`. **Contourne toute la
+  RLS**. Réservée au seed et au webhook de paiement. Jamais préfixée
+  `NEXT_PUBLIC_`, jamais committée, jamais collée dans un chat.
+
+> Les anciennes clés JWT (`eyJhbGci…`) sont **désactivées** sur ce projet : une
+> `service_role` au format JWT avait fuité dans un log de build Cloudflare.
+> Attention, couper les clés JWT dans Supabase coupe **les deux** d'un coup, pas
+> seulement celle qui a fuité — récupère la nouvelle clé publishable *avant* de
+> désactiver, sinon le site répond « Legacy API keys are disabled » sur toutes
+> les pages en attendant.
+>
+> Et une variable Cloudflare de type **Texte s'affiche en clair dans les logs de
+> build**. Un secret déclaré en Texte est un secret publié : c'est comme ça que
+> `PAYMENT_WEBHOOK_SECRET` a fuité à son tour.
 
 `src/lib/db.ts` importe `server-only` : si un composant client tente de
 l'importer, **la compilation échoue**. C'est ce qui empêche la clé secrète de
@@ -176,6 +188,37 @@ l'exécution, donc les changer ne demande pas de rebuild.
 ### 4. Déployer
 
 Un `git push` sur `main` déclenche le build et le déploiement.
+
+### Les quatre pièges du déploiement
+
+Chacun nous a coûté au moins un build, et aucun ne se lit dans le message
+d'erreur qu'il produit.
+
+**Le bouton *Retry* rejoue l'ancien commit.** Il ne reconstruit pas la branche,
+il refait *ce déploiement-là*. On a échoué trois fois de suite avec des logs
+identiques au caractère près alors que le correctif était déjà sur GitHub.
+Pour reconstruire du neuf : `git push`, ou **Create deployment**.
+
+**Le cache de build ressert un vieux `.next`.** Quand le log dit `Restoring from
+build output cache`, Cloudflare restaure le dossier `.next` du build précédent —
+donc aussi les routes d'icônes qu'on cherchait justement à alléger. Sur un
+projet qui build en trois minutes, ce cache ne fait gagner rien qui vaille ce
+risque : le laisser désactivé dans *Settings → Build*.
+
+**La limite de 3 Mio compte le code compressé, pas les fichiers servis.** Ce qui
+la fait sauter n'est presque jamais le code : c'est un fichier binaire qu'une
+convention Next.js inline en base64 dans le Worker. `npm run prebuild` refuse
+maintenant les icônes trop lourdes, et `npm run cf:size` donne le chiffre exact
+avant de pousser :
+
+```bash
+npm run cf:build && npm run cf:size
+```
+
+**wrangler écrase les variables Texte du tableau de bord** par celles de
+`wrangler.jsonc` à chaque déploiement. Une variable Texte définie uniquement
+dans le tableau de bord disparaît au premier déploiement réussi. Les **Secrets**
+ne sont jamais touchés — raison de plus pour que tout secret soit un Secret.
 
 ### Déployer depuis ta machine (déconseillé sous Windows)
 
