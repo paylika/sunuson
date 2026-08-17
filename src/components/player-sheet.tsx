@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { trackSupporters } from "@/lib/actions";
 import { duration, initials } from "@/lib/format";
 import { usePlayer, useUnlock } from "./providers";
+import { PlaylistButton } from "./playlist-button";
 import { SupportSheet } from "./support-sheet";
 import { Cover, cx } from "./ui";
 import { ChevronLeft, Lock, Pause, Play, Share, Spark } from "./icons";
@@ -169,7 +170,9 @@ export function PlayerSheet() {
         </div>
 
         {/* --------------------------------------------------------- lecture */}
-        <div className="mt-5 flex justify-center">
+        <div className="mt-5 flex items-center justify-center gap-6">
+          <PlaylistButton trackId={track.id} />
+
           <button
             onClick={() => toggle(track, artist)}
             aria-label={playing ? "Pause" : "Lecture"}
@@ -177,6 +180,10 @@ export function PlayerSheet() {
           >
             {playing ? <Pause size={26} /> : <Play size={26} />}
           </button>
+
+          {/* Contrepoids invisible : sans lui le bouton lecture serait
+              décentré par rapport à la pochette. */}
+          <span className="h-12 w-12 shrink-0" aria-hidden />
         </div>
 
         {/* -------------------------------------------------------- soutiens */}

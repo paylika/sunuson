@@ -156,6 +156,18 @@ export const Music = ({ className, size }: P) => (
   </svg>
 );
 
+export const Bookmark = ({ className, size }: P) => (
+  <svg {...base(size)} className={className}>
+    <path d="M6.5 5.5A1.5 1.5 0 0 1 8 4h8a1.5 1.5 0 0 1 1.5 1.5V20l-5.5-3.4L6.5 20V5.5Z" />
+  </svg>
+);
+
+export const BookmarkFilled = ({ className, size }: P) => (
+  <svg {...base(size)} className={className} fill="currentColor" stroke="none">
+    <path d="M6.5 5.5A1.5 1.5 0 0 1 8 4h8a1.5 1.5 0 0 1 1.5 1.5V20l-5.5-3.4L6.5 20V5.5Z" />
+  </svg>
+);
+
 export const ArrowUpRight = ({ className, size }: P) => (
   <svg {...base(size)} className={className}>
     <path d="M7.5 16.5 16.5 7.5" />

@@ -336,6 +336,48 @@ export async function getSupportsByArtist(artistId: string): Promise<Support[]> 
 }
 
 /**
+ * Résout une liste d'identifiants en morceaux, chacun avec son artiste.
+ * Sert la playlist, dont les identifiants vivent dans le navigateur du fan.
+ */
+export async function getTracksByIds(
+  ids: string[],
+): Promise<{ track: Track; artist: Artist }[]> {
+  if (ids.length === 0) return [];
+
+  const supabase = client();
+  const rows = unwrap(
+    await supabase
+      .from("tracks")
+      .select(TRACK_COLS)
+      .in("id", ids.slice(0, 200))
+      .returns<TrackRow[]>(),
+  );
+  if (rows.length === 0) return [];
+
+  const artistRows = unwrap(
+    await supabase
+      .from("artists")
+      .select(ARTIST_COLS)
+      .in("id", [...new Set(rows.map((r) => r.artist_id))])
+      .returns<ArtistRow[]>(),
+  );
+
+  const artists = new Map(artistRows.map((a) => [a.id, toArtist(a)]));
+  const tracks = rows.map(toTrack);
+
+  const collabs = await collaboratorsFor(tracks.map((t) => t.id));
+  for (const t of tracks) t.collaborators = collabs.get(t.id) ?? [];
+
+  // On respecte l'ordre d'ajout du fan, pas celui que renvoie la base.
+  const byId = new Map(tracks.map((t) => [t.id, t]));
+  return ids
+    .map((id) => byId.get(id))
+    .filter((t): t is Track => !!t)
+    .map((track) => ({ track, artist: artists.get(track.artistId)! }))
+    .filter((x) => !!x.artist);
+}
+
+/**
  * Qui a soutenu CE morceau. Sans montant : la liste sert de preuve sociale,
  * comme des « j'aime » — voir des noms pousse à en ajouter un.
  */

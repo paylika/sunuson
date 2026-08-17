@@ -3,6 +3,7 @@
 import { compact, duration } from "@/lib/format";
 import type { Artist, Track } from "@/lib/types";
 import { usePlayer, useUnlock } from "./providers";
+import { PlaylistButton } from "./playlist-button";
 import { Cover, cx } from "./ui";
 import { Lock, Pause, Play, Spark } from "./icons";
 
@@ -111,9 +112,8 @@ export function TrackRow({
         <Spark size={15} />
       </button>
 
-      <span className="w-5 shrink-0 text-right text-[11px] tabular-nums text-fg/25">
-        {index + 1}
-      </span>
+      {/* Le numéro de piste n'apprenait rien ; le bouton playlist, si. */}
+      <PlaylistButton trackId={track.id} size="sm" />
     </div>
   );
 }

@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cx } from "./ui";
-import { Compass, Home, UserIcon } from "./icons";
+import { Bookmark, Compass, Home, UserIcon } from "./icons";
 
 const items = [
   { href: "/", label: "Accueil", Icon: Home },
   { href: "/decouvrir", label: "Découvrir", Icon: Compass },
+  { href: "/playlist", label: "Playlist", Icon: Bookmark },
   { href: "/dashboard", label: "Mon espace", Icon: UserIcon },
 ];
 
@@ -40,8 +41,8 @@ export function BottomNav() {
                   : "text-fg/45 active:scale-95",
               )}
             >
-              <Icon size={20} />
-              <span className="text-[10.5px] font-semibold leading-none tracking-tight">
+              <Icon size={19} />
+              <span className="text-[9.5px] font-semibold leading-none tracking-tight">
                 {label}
               </span>
             </Link>

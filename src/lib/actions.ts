@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "./db";
-import { getSupportersOfTrack, searchArtists } from "./queries";
+import {
+  getSupportersOfTrack,
+  getTracksByIds,
+  searchArtists,
+} from "./queries";
 import { MAX_SUPPORT, MIN_SUPPORT, type PaymentMethod } from "./config";
 import {
   checkImageFile,
@@ -293,6 +297,12 @@ export async function createTrack(formData: FormData): Promise<ActionResult> {
 
   revalidateAll(artistSlug);
   return { ok: true };
+}
+
+/** Résout la playlist du fan, dont les identifiants vivent dans son navigateur. */
+export async function playlistTracks(ids: string[]) {
+  if (!Array.isArray(ids) || ids.length === 0) return [];
+  return getTracksByIds(ids.filter((id) => typeof id === "string"));
 }
 
 /** Noms des fans ayant soutenu un morceau, pour l'écran de lecture. */

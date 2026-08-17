@@ -179,12 +179,84 @@ export function useUnlock() {
   return ctx;
 }
 
+/* ============================================================== playlist */
+
+const PLAYLIST_KEY = "sunu:playlist";
+
+/**
+ * La playlist vit dans le navigateur du fan, pas en base.
+ *
+ * Il n'a pas de compte, et lui en demander un pour garder un son casserait
+ * exactement ce qui fait marcher le produit : on arrive par un lien, on
+ * écoute, on soutient. Le jour où l'authentification existera, cette liste
+ * pourra être remontée sur le compte au premier login.
+ */
+type PlaylistState = {
+  ids: string[];
+  has: (trackId: string) => boolean;
+  toggle: (trackId: string) => void;
+  /** Faux tant que le localStorage n'a pas été lu, pour éviter un écart
+      entre le rendu serveur et le premier rendu client. */
+  ready: boolean;
+};
+
+const PlaylistCtx = createContext<PlaylistState | null>(null);
+
+function PlaylistProvider({ children }: { children: ReactNode }) {
+  const [ids, setIds] = useState<string[]>([]);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(PLAYLIST_KEY);
+      const parsed: unknown = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(parsed)) {
+        setIds(parsed.filter((v): v is string => typeof v === "string"));
+      }
+    } catch {
+      /* stockage indisponible ou contenu illisible : on repart d'une liste vide */
+    }
+    setReady(true);
+  }, []);
+
+  const toggle = useCallback((trackId: string) => {
+    setIds((prev) => {
+      const next = prev.includes(trackId)
+        ? prev.filter((id) => id !== trackId)
+        : [trackId, ...prev];
+      try {
+        window.localStorage.setItem(PLAYLIST_KEY, JSON.stringify(next));
+      } catch {
+        /* navigation privée : la liste reste valable le temps de la session */
+      }
+      return next;
+    });
+  }, []);
+
+  const value = useMemo<PlaylistState>(
+    () => ({ ids, has: (id) => ids.includes(id), toggle, ready }),
+    [ids, toggle, ready],
+  );
+
+  return (
+    <PlaylistCtx.Provider value={value}>{children}</PlaylistCtx.Provider>
+  );
+}
+
+export function usePlaylist() {
+  const ctx = useContext(PlaylistCtx);
+  if (!ctx) throw new Error("usePlaylist doit être utilisé dans <Providers>");
+  return ctx;
+}
+
 /* =============================================================== racine */
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <UnlockProvider>
-      <PlayerProvider>{children}</PlayerProvider>
-    </UnlockProvider>
+    <PlaylistProvider>
+      <UnlockProvider>
+        <PlayerProvider>{children}</PlayerProvider>
+      </UnlockProvider>
+    </PlaylistProvider>
   );
 }
