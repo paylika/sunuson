@@ -15,7 +15,7 @@ type Entry = { track: Track; artist: Artist };
 
 export function PlaylistView() {
   const { ids, ready, addMany } = usePlaylist();
-  const { track: current, playing, toggle } = usePlayer();
+  const { track: current, playing, playQueue } = usePlayer();
   const { isUnlocked } = useUnlock();
 
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -103,7 +103,7 @@ export function PlaylistView() {
         </Glass>
       ) : (
         <div className="space-y-0.5">
-          {entries.map(({ track, artist }) => {
+          {entries.map(({ track, artist }, i) => {
             const locked = track.locked && !isUnlocked(track.id);
             const isCurrent = current?.id === track.id;
             const isPlaying = isCurrent && playing;
@@ -118,9 +118,9 @@ export function PlaylistView() {
               >
                 <button
                   onClick={() =>
-                    locked
-                      ? setSheet({ track, artist })
-                      : toggle(track, artist)
+                    // Lecture EN FILE : c'est ce qui débloque suivant et
+                    // précédent dans l'écran plein écran.
+                    locked ? setSheet({ track, artist }) : playQueue(entries, i)
                   }
                   aria-label={
                     locked ? "Débloquer" : isPlaying ? "Pause" : "Lecture"

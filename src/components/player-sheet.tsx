@@ -7,7 +7,18 @@ import { usePlayer, useUnlock } from "./providers";
 import { PlaylistButton } from "./playlist-button";
 import { SupportSheet } from "./support-sheet";
 import { Cover, cx } from "./ui";
-import { ChevronLeft, Lock, Pause, Play, Share, Spark } from "./icons";
+import {
+  ChevronLeft,
+  Lock,
+  Pause,
+  Play,
+  Repeat,
+  RepeatOne,
+  Share,
+  SkipBack,
+  SkipForward,
+  Spark,
+} from "./icons";
 
 /**
  * Écran de lecture plein écran. C'est le moment où le fan est le plus
@@ -16,8 +27,21 @@ import { ChevronLeft, Lock, Pause, Play, Share, Spark } from "./icons";
  * est celui des « j'aime » : on ajoute le sien parce que d'autres l'ont fait.
  */
 export function PlayerSheet() {
-  const { track, artist, playing, position, toggle, seek, expanded, collapse } =
-    usePlayer();
+  const {
+    track,
+    artist,
+    playing,
+    position,
+    toggle,
+    seek,
+    expanded,
+    collapse,
+    hasQueue,
+    next,
+    previous,
+    repeat,
+    toggleRepeat,
+  } = usePlayer();
   const { isUnlocked } = useUnlock();
 
   const [supporters, setSupporters] = useState<{ name: string }[]>([]);
@@ -170,20 +194,51 @@ export function PlayerSheet() {
         </div>
 
         {/* --------------------------------------------------------- lecture */}
-        <div className="mt-5 flex items-center justify-center gap-6">
+        {/* Suivant et précédent n'apparaissent que dans une file — ailleurs
+            ils n'auraient rien à enchaîner. Favori et répétition, eux, ont
+            un sens partout. */}
+        <div className="mt-5 flex items-center justify-center gap-4">
           <PlaylistButton trackId={track.id} />
+
+          {hasQueue && (
+            <button
+              onClick={previous}
+              aria-label="Morceau précédent"
+              className="grid h-12 w-12 place-items-center rounded-full text-fg/55 transition active:scale-90"
+            >
+              <SkipBack size={22} />
+            </button>
+          )}
 
           <button
             onClick={() => toggle(track, artist)}
             aria-label={playing ? "Pause" : "Lecture"}
-            className="grid h-18 w-18 place-items-center rounded-full grad-brand text-white glow-brand transition active:scale-90"
+            className="grid h-18 w-18 shrink-0 place-items-center rounded-full grad-brand text-white glow-brand transition active:scale-90"
           >
             {playing ? <Pause size={26} /> : <Play size={26} />}
           </button>
 
-          {/* Contrepoids invisible : sans lui le bouton lecture serait
-              décentré par rapport à la pochette. */}
-          <span className="h-12 w-12 shrink-0" aria-hidden />
+          {hasQueue && (
+            <button
+              onClick={next}
+              aria-label="Morceau suivant"
+              className="grid h-12 w-12 place-items-center rounded-full text-fg/55 transition active:scale-90"
+            >
+              <SkipForward size={22} />
+            </button>
+          )}
+
+          <button
+            onClick={toggleRepeat}
+            aria-pressed={repeat}
+            aria-label={repeat ? "Désactiver la répétition" : "Répéter"}
+            className={cx(
+              "grid h-12 w-12 shrink-0 place-items-center rounded-full transition active:scale-90",
+              repeat ? "grad-brand text-white" : "glass text-fg/45",
+            )}
+          >
+            {repeat ? <RepeatOne size={19} /> : <Repeat size={19} />}
+          </button>
         </div>
 
         {/* -------------------------------------------------------- soutiens */}

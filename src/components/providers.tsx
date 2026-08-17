@@ -14,13 +14,24 @@ import type { Artist, Track } from "@/lib/types";
 
 /* ============================================================== lecteur */
 
+export type QueueItem = { track: Track; artist: Artist };
+
 type PlayerState = {
   track: Track | null;
   artist: Artist | null;
   playing: boolean;
   /** Position de lecture en secondes. */
   position: number;
+  /** Lance un morceau seul. Aucun enchaînement ensuite. */
   toggle: (track: Track, artist: Artist) => void;
+  /** Lance une file : c'est elle qui débloque suivant et précédent. */
+  playQueue: (items: QueueItem[], startIndex: number) => void;
+  /** Vrai seulement quand il y a de quoi enchaîner. */
+  hasQueue: boolean;
+  next: () => void;
+  previous: () => void;
+  repeat: boolean;
+  toggleRepeat: () => void;
   pause: () => void;
   resume: () => void;
   seek: (seconds: number) => void;
@@ -34,16 +45,31 @@ type PlayerState = {
 const PlayerCtx = createContext<PlayerState | null>(null);
 
 function PlayerProvider({ children }: { children: ReactNode }) {
-  const [current, setCurrent] = useState<{
-    track: Track;
-    artist: Artist;
-  } | null>(null);
+  // Tout passe par une file, même un morceau seul : ça évite deux chemins
+  // de lecture à maintenir. Une file d'un élément n'affiche simplement pas
+  // les boutons d'enchaînement.
+  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
+  const [repeat, setRepeat] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  const current = queue[index] ?? null;
   const track = current?.track ?? null;
+  const hasQueue = queue.length > 1;
+
+  const advance = useCallback(() => {
+    setPosition(0);
+    setIndex((i) => {
+      if (repeat) return i;
+      if (i + 1 < queue.length) return i + 1;
+      // Fin de file sans répétition : on s'arrête plutôt que de reboucler.
+      setPlaying(false);
+      return i;
+    });
+  }, [repeat, queue.length]);
 
   /**
    * Deux modes : si le morceau a un fichier, on pilote un <audio> réel ;
@@ -57,14 +83,14 @@ function PlayerProvider({ children }: { children: ReactNode }) {
     const id = window.setInterval(() => {
       setPosition((p) => {
         if (p + 0.25 >= track.duration) {
-          setPlaying(false);
+          advance();
           return 0;
         }
         return p + 0.25;
       });
     }, 250);
     return () => window.clearInterval(id);
-  }, [playing, track]);
+  }, [playing, track, advance]);
 
   useEffect(() => {
     const el = audioRef.current;
@@ -79,12 +105,51 @@ function PlayerProvider({ children }: { children: ReactNode }) {
         setPlaying((p) => !p);
         return;
       }
-      setCurrent({ track: next, artist });
+      setQueue([{ track: next, artist }]);
+      setIndex(0);
       setPosition(0);
       setPlaying(true);
     },
     [current],
   );
+
+  const playQueue = useCallback(
+    (items: QueueItem[], startIndex: number) => {
+      const item = items[startIndex];
+      if (!item) return;
+
+      // Même morceau déjà en cours dans la même file : simple pause/reprise.
+      if (current?.track.id === item.track.id && queue.length === items.length) {
+        setPlaying((p) => !p);
+        return;
+      }
+      setQueue(items);
+      setIndex(startIndex);
+      setPosition(0);
+      setPlaying(true);
+    },
+    [current, queue.length],
+  );
+
+  const next = useCallback(() => {
+    setPosition(0);
+    setIndex((i) => (i + 1 < queue.length ? i + 1 : 0));
+    setPlaying(true);
+  }, [queue.length]);
+
+  const previous = useCallback(() => {
+    // Réflexe attendu de tous les lecteurs : au-delà de trois secondes, le
+    // bouton précédent revient au début du morceau avant de changer de piste.
+    if (position > 3) {
+      setPosition(0);
+      const el = audioRef.current;
+      if (el) el.currentTime = 0;
+      return;
+    }
+    setPosition(0);
+    setIndex((i) => (i > 0 ? i - 1 : Math.max(0, queue.length - 1)));
+    setPlaying(true);
+  }, [position, queue.length]);
 
   const seek = useCallback((seconds: number) => {
     setPosition(seconds);
@@ -99,12 +164,19 @@ function PlayerProvider({ children }: { children: ReactNode }) {
       playing,
       position,
       toggle,
+      playQueue,
+      hasQueue,
+      next,
+      previous,
+      repeat,
+      toggleRepeat: () => setRepeat((r) => !r),
       seek,
       pause: () => setPlaying(false),
       resume: () => setPlaying(true),
       stop: () => {
         setPlaying(false);
-        setCurrent(null);
+        setQueue([]);
+        setIndex(0);
         setPosition(0);
         setExpanded(false);
       },
@@ -113,7 +185,20 @@ function PlayerProvider({ children }: { children: ReactNode }) {
       expand: () => setExpanded(current !== null),
       collapse: () => setExpanded(false),
     }),
-    [track, current, playing, position, toggle, seek, expanded],
+    [
+      track,
+      current,
+      playing,
+      position,
+      toggle,
+      playQueue,
+      hasQueue,
+      next,
+      previous,
+      repeat,
+      seek,
+      expanded,
+    ],
   );
 
   return (
@@ -123,10 +208,7 @@ function PlayerProvider({ children }: { children: ReactNode }) {
         ref={audioRef}
         src={track?.audioUrl}
         onTimeUpdate={(e) => setPosition(e.currentTarget.currentTime)}
-        onEnded={() => {
-          setPlaying(false);
-          setPosition(0);
-        }}
+        onEnded={advance}
         hidden
       />
     </PlayerCtx.Provider>

@@ -156,6 +156,39 @@ export const Music = ({ className, size }: P) => (
   </svg>
 );
 
+export const SkipBack = ({ className, size }: P) => (
+  <svg {...base(size)} className={className} fill="currentColor" stroke="none">
+    <path d="M7 6.2c0-.6.5-1.1 1.1-1.1s1.1.5 1.1 1.1v11.6c0 .6-.5 1.1-1.1 1.1S7 18.4 7 17.8V6.2Z" />
+    <path d="M17.9 5.7c.7-.5 1.6 0 1.6.9v10.8c0 .9-.9 1.4-1.6.9l-7.2-5.4a1.1 1.1 0 0 1 0-1.8l7.2-5.4Z" />
+  </svg>
+);
+
+export const SkipForward = ({ className, size }: P) => (
+  <svg {...base(size)} className={className} fill="currentColor" stroke="none">
+    <path d="M17 6.2c0-.6-.5-1.1-1.1-1.1s-1.1.5-1.1 1.1v11.6c0 .6.5 1.1 1.1 1.1s1.1-.5 1.1-1.1V6.2Z" />
+    <path d="M6.1 5.7c-.7-.5-1.6 0-1.6.9v10.8c0 .9.9 1.4 1.6.9l7.2-5.4a1.1 1.1 0 0 0 0-1.8L6.1 5.7Z" />
+  </svg>
+);
+
+export const Repeat = ({ className, size }: P) => (
+  <svg {...base(size)} className={className}>
+    <path d="M4.5 11.5V10a3.5 3.5 0 0 1 3.5-3.5h11" />
+    <path d="m16 3.5 3 3-3 3" />
+    <path d="M19.5 12.5V14a3.5 3.5 0 0 1-3.5 3.5H5" />
+    <path d="m8 20.5-3-3 3-3" />
+  </svg>
+);
+
+export const RepeatOne = ({ className, size }: P) => (
+  <svg {...base(size)} className={className}>
+    <path d="M4.5 11.5V10a3.5 3.5 0 0 1 3.5-3.5h11" />
+    <path d="m16 3.5 3 3-3 3" />
+    <path d="M19.5 12.5V14a3.5 3.5 0 0 1-3.5 3.5H5" />
+    <path d="m8 20.5-3-3 3-3" />
+    <path d="M11.6 9.6 13 8.8v5" strokeWidth="2.1" />
+  </svg>
+);
+
 export const Bookmark = ({ className, size }: P) => (
   <svg {...base(size)} className={className}>
     <path d="M6.5 5.5A1.5 1.5 0 0 1 8 4h8a1.5 1.5 0 0 1 1.5 1.5V20l-5.5-3.4L6.5 20V5.5Z" />
