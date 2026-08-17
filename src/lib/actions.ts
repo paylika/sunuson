@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "./db";
+import { currentUser, supabaseSession } from "./auth";
 import {
   getSupportersOfTrack,
   getTracksByIds,
@@ -391,6 +392,138 @@ export async function requestPayout(
 
   revalidatePath("/dashboard");
   return { ok: true };
+}
+
+/* ================================================================ compte */
+
+/**
+ * Transforme un compte en compte d'artiste.
+ *
+ * Il n'y a pas de « type de compte » choisi à l'inscription : tout le monde
+ * crée le même compte, et devient artiste en créant sa page. Un artiste reste
+ * donc un fan — il peut soutenir les autres et garder sa playlist. Demander
+ * « fan ou artiste ? » à quelqu'un qui n'a pas encore vu le produit ferait
+ * perdre ceux qui hésitent, pour une question qu'on peut poser plus tard.
+ */
+export async function createArtistProfile(input: {
+  name: string;
+  city: string;
+}): Promise<ActionResult & { slug?: string }> {
+  const user = await currentUser();
+  if (!user) return { ok: false, error: "Connecte-toi d'abord." };
+
+  const name = (input.name || "").trim().slice(0, 60);
+  const city = (input.city || "").trim().slice(0, 60);
+
+  if (name.length < 2) {
+    return { ok: false, error: "Ton nom d'artiste fait au moins 2 lettres." };
+  }
+
+  const admin = supabaseAdmin();
+
+  // Un compte, une page. Sans ce garde-fou, un double clic sur le bouton
+  // créerait deux artistes et l'un des deux deviendrait inatteignable.
+  const existant = unwrapOrNull(
+    await admin.from("artists").select("slug").eq("user_id", user.id).maybeSingle(),
+  );
+  if (existant) return { ok: true, slug: (existant as { slug: string }).slug };
+
+  const slug = await slugLibre(name);
+
+  const { error } = await admin.from("artists").insert({
+    user_id: user.id,
+    slug,
+    name,
+    city,
+  });
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidateAll(slug);
+  return { ok: true, slug };
+}
+
+/**
+ * Le compte qui reçoit l'argent.
+ *
+ * Il n'existait aucun écran pour le renseigner : `requestPayout` créait donc
+ * des demandes de retrait sans destination. C'est le premier réglage qu'un
+ * artiste doit pouvoir poser.
+ */
+export async function updatePayout(input: {
+  artistId: string;
+  method: PaymentMethod;
+  number: string;
+}): Promise<ActionResult> {
+  const user = await currentUser();
+  if (!user) return { ok: false, error: "Connecte-toi d'abord." };
+
+  if (input.method !== "wave" && input.method !== "orange_money") {
+    return { ok: false, error: "Moyen de paiement inconnu." };
+  }
+
+  // Chiffres seulement : les fans dictent leur numéro avec des espaces, des
+  // points ou un +221 selon l'habitude, et l'agrégateur n'en veut rien.
+  const number = (input.number || "").replace(/\D/g, "");
+  if (number.length < 9 || number.length > 15) {
+    return { ok: false, error: "Numéro invalide." };
+  }
+
+  // Le filtre sur user_id est la sécurité : sans lui, une Server Action
+  // appelée à la main changerait le numéro de retrait d'un autre artiste.
+  const { error } = await supabaseAdmin()
+    .from("artists")
+    .update({ payout_method: input.method, payout_number: number })
+    .eq("id", input.artistId)
+    .eq("user_id", user.id);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/parametres");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+/** Déconnexion. Une Server Action peut écrire les cookies, pas une page. */
+export async function signOut(): Promise<void> {
+  const supabase = await supabaseSession();
+  await supabase.auth.signOut();
+  revalidatePath("/", "layout");
+}
+
+/**
+ * Une adresse lisible dérivée du nom, unique en base.
+ *
+ * Le slug part dans la bio Instagram de l'artiste : il doit rester court et
+ * prononçable. En cas de collision on suffixe un nombre plutôt que de coller
+ * un identifiant aléatoire, illisible à dicter au téléphone.
+ */
+async function slugLibre(name: string): Promise<string> {
+  const base =
+    name
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "")
+      .slice(0, 24) || "artiste";
+
+  const admin = supabaseAdmin();
+
+  for (let i = 0; i < 50; i++) {
+    const essai = i === 0 ? base : `${base}${i + 1}`;
+    const pris = unwrapOrNull(
+      await admin.from("artists").select("id").eq("slug", essai).maybeSingle(),
+    );
+    if (!pris) return essai;
+  }
+
+  // Cinquante homonymes : on cède et on prend l'identifiant du compte.
+  return `${base}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+/** Comme unwrap, mais une absence de ligne n'est pas une erreur. */
+function unwrapOrNull<T>(res: { data: T | null; error: unknown }): T | null {
+  return res.data ?? null;
 }
 
 /* ---------------------------------------------------------------------- */

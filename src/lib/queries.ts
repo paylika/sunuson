@@ -223,6 +223,56 @@ export async function getArtistBySlug(slug: string): Promise<Artist | null> {
   return row ? toArtist(row) : null;
 }
 
+/**
+ * La page d'artiste rattachée à un compte, ou null.
+ *
+ * C'est cette requête qui définit ce qu'est « être artiste » ici : posséder
+ * une ligne dans `artists`. Il n'y a pas de type de compte déclaré à
+ * l'inscription — on le devient en créant sa page, et on reste fan par
+ * ailleurs.
+ */
+export async function getArtistByUser(userId: string): Promise<Artist | null> {
+  const supabase = client();
+  const row = unwrap(
+    await supabase
+      .from("artists")
+      .select(ARTIST_COLS)
+      .eq("user_id", userId)
+      .maybeSingle<ArtistRow>(),
+  );
+  return row ? toArtist(row) : null;
+}
+
+/**
+ * Le moyen de retrait d'un artiste. **Jamais dans le type `Artist`.**
+ *
+ * `Artist` part dans le navigateur de chaque visiteur sur toutes les pages
+ * publiques. Y glisser le numéro de retrait afficherait le téléphone de chaque
+ * rappeur à qui veut lire le HTML — précisément ce que le produit existe pour
+ * éviter. Cette lecture-ci est réservée à l'écran de paramètres, et filtrée
+ * sur le compte propriétaire.
+ */
+export async function getPayoutSettings(
+  artistId: string,
+  userId: string,
+): Promise<{ method: PaymentMethod; number: string } | null> {
+  const supabase = client();
+  const row = unwrap(
+    await supabase
+      .from("artists")
+      .select("payout_method, payout_number")
+      .eq("id", artistId)
+      .eq("user_id", userId)
+      .maybeSingle<{ payout_method: string; payout_number: string | null }>(),
+  );
+
+  if (!row) return null;
+  return {
+    method: (row.payout_method as PaymentMethod) ?? "wave",
+    number: row.payout_number ?? "",
+  };
+}
+
 /* -------------------------------------------------------------------- sons */
 
 export async function getTracksByArtist(artistId: string): Promise<Track[]> {

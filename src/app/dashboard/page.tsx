@@ -1,31 +1,40 @@
-import { DEMO_ARTIST_SLUG } from "@/lib/config";
+import { currentUser } from "@/lib/auth";
 import {
-  getArtistBySlug,
+  getArtistByUser,
   getBalance,
   getSupportsByArtist,
   getTracksByArtist,
 } from "@/lib/queries";
 import { DashboardView } from "@/components/dashboard-view";
+import { EspaceFan, EspaceHeader, EspaceInvite } from "@/components/espace-view";
 import { Shell } from "@/components/shell";
-import { Glass } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
-  // Pas encore d'authentification : le dashboard montre toujours le même
-  // artiste. À remplacer par celui de la session connectée.
-  const artist = await getArtistBySlug(DEMO_ARTIST_SLUG);
+/**
+ * « Mon espace » — un seul onglet, trois écrans selon qui regarde.
+ *
+ * Avant, cette page montrait toujours l'artiste de démonstration à qui la
+ * demandait : n'importe quel visiteur voyait les revenus de Ndiaga Flow et
+ * pouvait publier en son nom. C'est la session qui décide maintenant.
+ */
+export default async function EspacePage() {
+  const user = await currentUser();
+
+  if (!user) {
+    return (
+      <Shell>
+        <EspaceInvite />
+      </Shell>
+    );
+  }
+
+  const artist = await getArtistByUser(user.id);
 
   if (!artist) {
     return (
       <Shell>
-        <Glass className="mt-10 px-5 py-8 text-center">
-          <p className="text-[14px] font-medium">Aucun artiste en base.</p>
-          <p className="mt-2 text-[12.5px] leading-relaxed text-fg/50">
-            Lance <code className="text-brand-300">npm run db:seed</code> pour
-            charger les données de démonstration.
-          </p>
-        </Glass>
+        <EspaceFan email={user.email ?? ""} />
       </Shell>
     );
   }
@@ -38,6 +47,7 @@ export default async function DashboardPage() {
 
   return (
     <Shell>
+      <EspaceHeader titre="Mon espace" sous={artist.name} />
       <DashboardView
         artist={artist}
         tracks={tracks}

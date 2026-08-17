@@ -274,6 +274,32 @@ export const RepeatOne = ({ className, size }: P) => (
   </svg>
 );
 
+/**
+ * Réglages — la tranche d'une console de mixage, pas un engrenage.
+ *
+ * L'engrenage est le glyphe le plus générique qui existe et n'appartient à
+ * aucun univers. Trois faders à des hauteurs différentes disent la même chose
+ * — « ici on règle » — dans le vocabulaire du studio, et se lisent au premier
+ * coup d'œil parce que les curseurs ne sont pas alignés.
+ */
+export const Sliders = ({ className, size }: P) => (
+  <svg {...line(size)} className={className}>
+    <path d="M6 3.4v4.2M6 12.9V20.6M12 3.4v9.1M12 17.8v2.8M18 3.4v2.6M18 11.3v9.3" />
+    <circle cx="6" cy="10.2" r="2.6" />
+    <circle cx="12" cy="15.2" r="2.6" />
+    <circle cx="18" cy="8.6" r="2.6" />
+  </svg>
+);
+
+/** Déconnexion — la porte et la flèche qui en sort. */
+export const LogOut = ({ className, size }: P) => (
+  <svg {...line(size)} className={className}>
+    <path d="M14.5 3.5h2A3 3 0 0 1 19.5 6.5v11a3 3 0 0 1-3 3h-2" />
+    <path d="M10.5 8 6.5 12l4 4" />
+    <path d="M6.5 12h8" />
+  </svg>
+);
+
 /** Badge de vérification : la coche est évidée pour laisser passer le fond. */
 export const Verified = ({ className, size = 16 }: P) => (
   <svg width={size} height={size} viewBox="0 0 24 24" className={className}>
