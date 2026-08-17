@@ -8,14 +8,13 @@
     "start": "next start",
     "lint": "next lint",
     "cf:typegen": "wrangler types",
-    "db:local": "wrangler d1 execute sunuson-db --local --file=./db/schema.sql",
-    "db:seed:local": "wrangler d1 execute sunuson-db --local --file=./db/seed.sql",
-    "db:remote": "wrangler d1 execute sunuson-db --remote --file=./db/schema.sql",
-    "db:seed:remote": "wrangler d1 execute sunuson-db --remote --file=./db/seed.sql",
+    "db:seed": "node scripts/db-seed.mjs",
+    "db:inspect": "node scripts/db-inspect.mjs",
     "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "cf:deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.3",
     "next": "^15.5.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

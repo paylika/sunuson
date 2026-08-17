@@ -16,19 +16,21 @@
 
   "observability": { "enabled": true },
 
-  // La base. `database_id` reste vide tant que `wrangler d1 create` n'a pas
-  // été lancé — en local, wrangler travaille sur un SQLite dans .wrangler/
-  // et ignore cet identifiant.
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "sunuson-db",
-      "database_id": "REMPLIR_APRES_WRANGLER_D1_CREATE"
-    }
-  ],
+  // La base est chez Supabase, pas ici : le client parle en HTTP, ce qui
+  // fonctionne nativement sur Workers. Pas de binding D1.
+  //
+  // Avant de déployer, pousser les variables côté Cloudflare :
+  //   npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+  // et déclarer les NEXT_PUBLIC_* dans "vars" ci-dessous — elles sont
+  // publiques par nature, elles finissent dans le bundle du navigateur.
+  "vars": {
+    // "NEXT_PUBLIC_SUPABASE_URL": "https://xxxx.supabase.co",
+    // "NEXT_PUBLIC_SUPABASE_ANON_KEY": "...",
+    // "NEXT_PUBLIC_AUDIO_BASE_URL": "..."
+  },
 
-  // Les fichiers audio. Egress gratuit : c'est le seul poste qui explose
-  // sur un produit d'écoute.
+  // Les fichiers audio, le jour où l'egress Supabase serre.
+  // Egress gratuit : c'est le seul poste qui explose sur un produit d'écoute.
   "r2_buckets": [
     {
       "binding": "AUDIO",

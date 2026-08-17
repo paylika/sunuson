@@ -1,5 +1,5 @@
 import "server-only";
-import { db } from "./db";
+import { supabase } from "./db";
 import type { Artist, Clip, Support, Track } from "./types";
 import type { PaymentMethod } from "./config";
 
@@ -8,14 +8,11 @@ import type { PaymentMethod } from "./config";
  * serveur. Signature identique aux sélecteurs de src/lib/data.ts : les
  * composants ne connaissent que les types, jamais la provenance des données.
  *
- * Changer de base un jour (Postgres, Turso…) revient à réécrire ce fichier
- * et db.ts. Rien d'autre ne bouge.
+ * Changer de base un jour revient à réécrire ce fichier et db.ts. Rien
+ * d'autre ne bouge — c'est ce qui a rendu les allers-retours indolores.
  */
 
 /* ------------------------------------------------------------- conversions */
-
-/** SQLite ne connaît pas les booléens : ils reviennent en 0 / 1. */
-const bool = (v: number | boolean) => v === 1 || v === true;
 
 type ArtistRow = {
   id: string;
@@ -25,7 +22,7 @@ type ArtistRow = {
   bio: string;
   gradient_from: string;
   gradient_to: string;
-  verified: number;
+  verified: boolean;
   monthly_listeners: number;
 };
 
@@ -40,7 +37,7 @@ function toArtist(r: ArtistRow): Artist {
     city: r.city,
     bio: r.bio,
     gradient: [r.gradient_from, r.gradient_to],
-    verified: bool(r.verified),
+    verified: r.verified,
     monthlyListeners: r.monthly_listeners,
   };
 }
@@ -53,14 +50,14 @@ type TrackRow = {
   plays: number;
   released_at: string;
   audio_key: string | null;
-  locked: number;
+  locked: boolean;
   featuring: string | null;
 };
 
 const TRACK_COLS =
   "id, artist_id, title, duration, plays, released_at, audio_key, locked, featuring";
 
-/** La base ne stocke que la clé R2 ; l'URL publique se compose ici. */
+/** La base ne stocke que la clé ; l'URL publique se compose ici. */
 function audioUrl(key: string | null): string | undefined {
   const base = process.env.NEXT_PUBLIC_AUDIO_BASE_URL;
   if (!key || !base) return undefined;
@@ -74,9 +71,9 @@ function toTrack(r: TrackRow): Track {
     title: r.title,
     duration: r.duration,
     plays: r.plays,
-    releasedAt: r.released_at.slice(0, 10),
+    releasedAt: String(r.released_at).slice(0, 10),
     audioUrl: audioUrl(r.audio_key),
-    locked: bool(r.locked),
+    locked: r.locked,
     featuring: r.featuring ?? undefined,
   };
 }
@@ -92,6 +89,9 @@ type SupportRow = {
   created_at: string;
 };
 
+const SUPPORT_COLS =
+  "id, artist_id, track_id, supporter_name, amount, message, method, created_at";
+
 function toSupport(r: SupportRow): Support {
   return {
     id: r.id,
@@ -105,36 +105,48 @@ function toSupport(r: SupportRow): Support {
   };
 }
 
+/** Une requête ratée doit remonter, pas se transformer en page vide. */
+function unwrap<T>(res: { data: T | null; error: { message: string } | null }): T {
+  if (res.error) throw new Error(`Supabase: ${res.error.message}`);
+  return res.data as T;
+}
+
 /* ---------------------------------------------------------------- artistes */
 
 export async function getArtists(): Promise<Artist[]> {
-  const { results } = await (await db())
-    .prepare(
-      `select ${ARTIST_COLS} from artists order by monthly_listeners desc`,
-    )
-    .all<ArtistRow>();
-  return results.map(toArtist);
+  const rows = unwrap(
+    await supabase
+      .from("artists")
+      .select(ARTIST_COLS)
+      .order("monthly_listeners", { ascending: false })
+      .returns<ArtistRow[]>(),
+  );
+  return rows.map(toArtist);
 }
 
 export async function getArtistBySlug(slug: string): Promise<Artist | null> {
-  const row = await (await db())
-    .prepare(`select ${ARTIST_COLS} from artists where slug = ?1`)
-    .bind(slug)
-    .first<ArtistRow>();
+  const row = unwrap(
+    await supabase
+      .from("artists")
+      .select(ARTIST_COLS)
+      .eq("slug", slug)
+      .maybeSingle<ArtistRow>(),
+  );
   return row ? toArtist(row) : null;
 }
 
 /* -------------------------------------------------------------------- sons */
 
 export async function getTracksByArtist(artistId: string): Promise<Track[]> {
-  const { results } = await (await db())
-    .prepare(
-      `select ${TRACK_COLS} from tracks where artist_id = ?1
-       order by position, created_at`,
-    )
-    .bind(artistId)
-    .all<TrackRow>();
-  return results.map(toTrack);
+  const rows = unwrap(
+    await supabase
+      .from("tracks")
+      .select(TRACK_COLS)
+      .eq("artist_id", artistId)
+      .order("position")
+      .returns<TrackRow[]>(),
+  );
+  return rows.map(toTrack);
 }
 
 /* ------------------------------------------------------------------- clips */
@@ -148,14 +160,15 @@ type ClipRow = {
 };
 
 export async function getClipsByArtist(artistId: string): Promise<Clip[]> {
-  const { results } = await (await db())
-    .prepare(
-      `select id, artist_id, title, youtube_id, views from clips
-       where artist_id = ?1 order by created_at`,
-    )
-    .bind(artistId)
-    .all<ClipRow>();
-  return results.map((r) => ({
+  const rows = unwrap(
+    await supabase
+      .from("clips")
+      .select("id, artist_id, title, youtube_id, views")
+      .eq("artist_id", artistId)
+      .order("created_at")
+      .returns<ClipRow[]>(),
+  );
+  return rows.map((r) => ({
     id: r.id,
     artistId: r.artist_id,
     title: r.title,
@@ -168,17 +181,16 @@ export async function getClipsByArtist(artistId: string): Promise<Clip[]> {
 
 /** Seuls les soutiens confirmés sont visibles : un 'pending' n'existe pas. */
 export async function getSupportsByArtist(artistId: string): Promise<Support[]> {
-  const { results } = await (await db())
-    .prepare(
-      `select id, artist_id, track_id, supporter_name, amount, message,
-              method, created_at
-       from supports
-       where artist_id = ?1 and status = 'paid'
-       order by created_at desc`,
-    )
-    .bind(artistId)
-    .all<SupportRow>();
-  return results.map(toSupport);
+  const rows = unwrap(
+    await supabase
+      .from("supports")
+      .select(SUPPORT_COLS)
+      .eq("artist_id", artistId)
+      .eq("status", "paid")
+      .order("created_at", { ascending: false })
+      .returns<SupportRow[]>(),
+  );
+  return rows.map(toSupport);
 }
 
 /* ------------------------------------------------------------------ soldes */
@@ -208,17 +220,20 @@ const toBalance = (r: BalanceRow): Balance => ({
 });
 
 export async function getBalances(): Promise<Map<string, Balance>> {
-  const { results } = await (await db())
-    .prepare("select * from artist_balances")
-    .all<BalanceRow>();
-  return new Map(results.map((r) => [r.artist_id, toBalance(r)]));
+  const rows = unwrap(
+    await supabase.from("artist_balances").select("*").returns<BalanceRow[]>(),
+  );
+  return new Map(rows.map((r) => [r.artist_id, toBalance(r)]));
 }
 
 export async function getBalance(artistId: string): Promise<Balance> {
-  const row = await (await db())
-    .prepare("select * from artist_balances where artist_id = ?1")
-    .bind(artistId)
-    .first<BalanceRow>();
+  const row = unwrap(
+    await supabase
+      .from("artist_balances")
+      .select("*")
+      .eq("artist_id", artistId)
+      .maybeSingle<BalanceRow>(),
+  );
   return (
     (row && toBalance(row)) ?? {
       artistId,

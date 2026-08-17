@@ -21,24 +21,45 @@ Trois conséquences qui gouvernent tout le produit :
    page et son lien à mettre en bio. Le trafic vient d'Instagram, de TikTok et
    de WhatsApp — jamais d'une recherche sur la plateforme.
 
+## Le stack
+
+| Brique | Service | Pourquoi |
+| --- | --- | --- |
+| Base de données | **Supabase** (Postgres) | Auth et stockage dans la même boîte |
+| Hébergement | **Cloudflare Workers** (adaptateur OpenNext) | Gratuit, jamais en pause |
+| Fichiers audio | **Cloudflare R2**, à terme | Egress gratuit |
+| Clips vidéo | Aucun — ils restent sur YouTube | Zéro bande passante |
+
+Le client Supabase parle en HTTP : il tourne donc nativement sur Workers,
+aucune adaptation nécessaire.
+
 ## Démarrer
+
+**1.** Installer :
 
 ```bash
 npm install
 ```
 
-Créer la base locale et la remplir. Tout se passe dans `.wrangler/`, **aucun
-contact avec ton compte Cloudflare** :
+**2.** Créer le schéma — copier tout [`supabase/schema.sql`](supabase/schema.sql)
+dans le **SQL Editor** du projet Supabase, et exécuter. Le fichier est
+idempotent, relançable sans rien casser.
+
+**3.** Renseigner les clés. Copier `.env.example` en `.env.local`, puis coller
+les deux clés depuis *Dashboard → Project Settings → API* :
 
 ```bash
-npm run db:local && npm run db:seed:local
+cp .env.example .env.local
 ```
+
+**4.** Charger les données de démonstration, puis lancer :
 
 ```bash
-npm run dev
+npm run db:seed && npm run dev
 ```
 
-Puis ouvrir <http://localhost:3000>.
+`npm run db:inspect` compte ce qu'il y a en base. Ouvrir ensuite
+<http://localhost:3000>.
 
 ## Les écrans
 
@@ -53,99 +74,73 @@ Parcours à tester : `/a/ndiagaflow` → onglet **Sons** → un morceau marqué
 *Inédit* → **Soutenir** → montant → Wave → le morceau se débloque et le nom
 apparaît dans l'onglet **Soutiens**.
 
-## Infrastructure — Cloudflare uniquement
+## Sécurité — les deux clés
 
-| Brique | Service | Palier gratuit |
-| --- | --- | --- |
-| Hébergement | Workers, via l'adaptateur OpenNext | 100 k requêtes/jour |
-| Base de données | **D1** (SQLite) | 5 Go, 5 M lectures/jour |
-| Fichiers audio | **R2** | Egress **gratuit** — le poste qui explose ailleurs |
-| Clips vidéo | Aucun — ils restent sur YouTube | — |
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — publique, **bridée par la RLS**. L'app s'en
+  sert pour *toutes* les lectures, y compris côté serveur. C'est volontaire :
+  si une policy est mal écrite, la fuite reste bornée à ce que le public a déjà
+  le droit de voir.
+- `SUPABASE_SERVICE_ROLE_KEY` — **contourne toute la RLS**. Réservée au seed et
+  au futur webhook de paiement. Jamais préfixée `NEXT_PUBLIC_`, jamais
+  committée, jamais collée dans un chat.
 
-L'avantage décisif sur le gratuit Supabase : **D1 ne se met jamais en pause.**
-Un projet Supabase gratuit s'endort après une semaine sans activité — le jour
-où un artiste partage son lien après dix jours de calme, la page tombe.
+`src/lib/db.ts` importe `server-only` : si un composant client tente de
+l'importer, **la compilation échoue**. C'est ce qui empêche la clé secrète de
+finir dans le bundle du navigateur.
 
-### D1, c'est du SQLite
+La table `supports` n'a **aucune policy d'insertion**. Le navigateur ne peut
+donc pas créer de soutien, même s'il essaie — seul le serveur en est capable.
 
-Trois différences avec Postgres, visibles dans `db/schema.sql` :
+## Changer de base coûte deux fichiers
 
-- pas de type `uuid` → `TEXT`, l'identifiant est généré par l'app
-- pas de booléen → `INTEGER`, 0 ou 1
-- pas de `timestamptz` → `TEXT` au format ISO 8601 (UTC)
+Tout accès à la base est enfermé dans `src/lib/queries.ts` et `src/lib/db.ts`.
+Aucun composant ne sait d'où viennent les données : ils ne connaissent que les
+types de `src/lib/types.ts`. C'est ce qui a rendu les allers-retours entre
+Supabase, Neon et D1 indolores — les écrans n'ont jamais bougé.
 
-Il n'y a pas de RLS non plus, et ce n'est pas un oubli : **D1 n'est joignable
-que depuis le Worker.** Le navigateur ne voit jamais la base. La frontière de
-sécurité, c'est le serveur, pas des policies.
+## L'hébergement audio
 
-### En local
+La base ne stocke que `audio_key`, la clé de l'objet — pas l'URL complète, car
+le domaine du CDN peut changer.
 
-```bash
-npm run db:local && npm run db:seed:local
-```
+Le palier gratuit Supabase Storage donne environ **5 Go de transfert par
+mois**, soit **~1 200 écoutes** à 4 Mo le morceau : un seul artiste avec cent
+fans actifs l'épuise en une semaine. Dès les premières écoutes réelles,
+basculer sur **Cloudflare R2** (egress gratuit) — seul
+`NEXT_PUBLIC_AUDIO_BASE_URL` change, `audio_key` reste identique.
 
-Les deux scripts sont idempotents. Ils écrivent un SQLite dans `.wrangler/`,
-que `next dev` lit via le binding OpenNext. **Aucune authentification
-Cloudflare n'est requise, et aucun projet distant n'est touché.**
+Encoder en **128 kbps** : la différence est inaudible sur un téléphone et
+divise par deux la consommation data du fan. Un son de 4 min y pèse ~4 Mo,
+contre 60 à 150 Mo pour le même morceau en clip. D'où la règle : les clips ne
+sont **jamais** hébergés, seul l'identifiant YouTube est stocké.
 
-Inspecter la base locale :
+## Déployer sur Cloudflare
 
-```bash
-npx wrangler d1 execute sunuson-db --local --command "select * from artist_balances"
-```
-
-### Passer en ligne — à faire par toi
-
-⚠️ **Avant tout : vérifie qu'aucun de tes Workers existants ne s'appelle
-`sunuson`.** C'est le seul cas où un déploiement écraserait un projet à toi. Le
-nom se change dans `wrangler.jsonc`. Les créations de base et de bucket, elles,
-ne touchent jamais à l'existant.
+⚠️ **Vérifie d'abord qu'aucun de tes Workers ne s'appelle déjà `sunuson`** —
+c'est le seul cas où un déploiement écraserait un projet à toi. Le nom se
+change dans [`wrangler.jsonc`](wrangler.jsonc).
 
 ```bash
 npx wrangler login
 ```
 
-```bash
-npx wrangler d1 create sunuson-db
-```
-
-Reporter le `database_id` renvoyé dans `wrangler.jsonc`, puis :
+Pousser la clé secrète, puis déclarer les `NEXT_PUBLIC_*` dans la section
+`vars` de `wrangler.jsonc` :
 
 ```bash
-npx wrangler r2 bucket create sunuson-audio
-```
-
-```bash
-npm run db:remote && npm run db:seed:remote
+npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 ```
 
 ```bash
 npm run cf:deploy
 ```
 
-`npm run cf:preview` permet de tester le build Worker en local avant de
-déployer quoi que ce soit.
-
-### Changer de base plus tard coûte deux fichiers
-
-Tout accès à la base est enfermé dans `src/lib/queries.ts` et `src/lib/db.ts`.
-Aucun composant ne sait d'où viennent les données — ils ne connaissent que les
-types de `src/lib/types.ts`. Passer un jour à Postgres ou Turso revient à
-réécrire ces deux fichiers, rien d'autre.
-
-### L'hébergement audio
-
-La base ne stocke que `audio_key`, la clé de l'objet dans R2 — pas l'URL
-complète, car le domaine du CDN peut changer.
-
-Encoder en **128 kbps** : la différence est inaudible sur un téléphone et
-divise par deux la consommation data du fan. Un son de 4 min y pèse ~4 Mo,
-contre 60 à 150 Mo pour le même morceau en clip. C'est pourquoi les clips ne
-sont **jamais** hébergés : seul l'identifiant YouTube est stocké.
+`npm run cf:preview` teste le build Worker en local avant de déployer quoi que
+ce soit.
 
 ## État actuel
 
-- `/a/[slug]` **lit D1** (artiste, sons, clips) en rendu dynamique.
+- `/a/[slug]` **lit la base** (artiste, sons, clips) en rendu dynamique.
 - Les autres écrans lisent encore `src/lib/data.ts`. Migration à finir.
 - Les soutiens vivent dans un store client (`providers.tsx`) : ce qui est
   ajouté pendant la session disparaît au rechargement.
@@ -160,7 +155,7 @@ Paystack — vérifier les conditions en vigueur) :
 
 1. Le client crée une intention de paiement côté serveur.
 2. `supports` reçoit une ligne en `status = 'pending'`.
-3. L'agrégateur confirme par webhook → passage en `'paid'`.
+3. L'agrégateur confirme par webhook → passage en `'paid'` via `supabaseAdmin()`.
 4. Le soutien devient visible sur le mur (`getSupportsByArtist` ne lit que les
    `'paid'`).
 
