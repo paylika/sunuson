@@ -1,3 +1,18 @@
+/**
+ * Comment le fan se connecte.
+ *
+ *   "lien" — Supabase envoie un lien cliquable. Fonctionne sans rien
+ *            configurer, avec le modèle de courriel par défaut.
+ *   "code" — six chiffres à saisir. Plus fiable sur mobile : un lien ouvert
+ *            depuis l'application de messagerie atterrit souvent dans un
+ *            autre navigateur, et la session se crée au mauvais endroit.
+ *
+ * Le code EXIGE un serveur d'envoi (SMTP) configuré dans Supabase : sans lui,
+ * les modèles de courriel ne sont pas modifiables et le jeton `{{ .Token }}`
+ * ne peut pas être inséré. Basculer sur "code" une fois le SMTP en place.
+ */
+export const AUTH_METHOD: "lien" | "code" = "lien";
+
 /** Réglages produit. */
 export const APP_NAME = "Amplifan";
 export const APP_TAGLINE = "Écoute libre. Soutien direct.";

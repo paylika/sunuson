@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { APP_NAME } from "@/lib/config";
+import { APP_NAME, AUTH_METHOD } from "@/lib/config";
 import { supabaseBrowser } from "@/lib/auth-client";
 import { cx } from "./ui";
 import { MarkTile, Wordmark } from "./logo";
 import { ChevronLeft, Play, Spark, Wallet } from "./icons";
 
-type Etape = "email" | "code";
+type Etape = "email" | "verification";
 
 /**
  * Un seul écran pour se connecter ET créer un compte.
@@ -31,6 +31,7 @@ export function ConnexionView({
 }) {
   const router = useRouter();
   const [etape, setEtape] = useState<Etape>("email");
+  const parCode = AUTH_METHOD === "code";
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [erreur, setErreur] = useState<string | null>(null);
@@ -47,8 +48,8 @@ export function ConnexionView({
   }, [renvoiDans]);
 
   useEffect(() => {
-    if (etape === "code") codeRef.current?.focus();
-  }, [etape]);
+    if (etape === "verification" && parCode) codeRef.current?.focus();
+  }, [etape, parCode]);
 
   const emailValide = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
 
@@ -58,7 +59,11 @@ export function ConnexionView({
 
     const { error } = await supabaseBrowser(supabaseUrl, supabaseKey).auth.signInWithOtp({
       email: email.trim().toLowerCase(),
-      options: { shouldCreateUser: true },
+      options: {
+        shouldCreateUser: true,
+        // Où le lien ramène. Ignoré quand le courriel contient un code.
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
     });
 
     setEnvoi(false);
@@ -67,7 +72,7 @@ export function ConnexionView({
       setErreur(error.message);
       return;
     }
-    setEtape("code");
+    setEtape("verification");
     setRenvoiDans(45);
   }
 
@@ -98,7 +103,7 @@ export function ConnexionView({
     <div className="relative mx-auto flex min-h-dvh w-full max-w-[480px] flex-col px-5 pb-8 pt-6">
       {/* ------------------------------------------------------------ entête */}
       <header className="flex items-center justify-between">
-        {etape === "code" ? (
+        {etape === "verification" ? (
           <button
             onClick={() => {
               setEtape("email");
@@ -132,8 +137,11 @@ export function ConnexionView({
               Entre ton adresse
             </h1>
             <p className="mx-auto mt-2.5 max-w-[300px] text-center text-[13px] leading-relaxed text-fg/50">
-              On t&apos;envoie un code à six chiffres. Pas de mot de passe à
-              retenir, et ton compte se crée tout seul si tu es nouveau.
+              {parCode
+                ? "On t'envoie un code à six chiffres."
+                : "On t'envoie un lien de connexion."}{" "}
+              Pas de mot de passe à retenir, et ton compte se crée tout seul si
+              tu es nouveau.
             </p>
 
             <input
@@ -166,55 +174,76 @@ export function ConnexionView({
                   : "bg-fg/8 text-fg/25 active:scale-100",
               )}
             >
-              {envoi ? "Envoi en cours…" : "Recevoir mon code"}
+              {envoi
+                ? "Envoi en cours…"
+                : parCode
+                  ? "Recevoir mon code"
+                  : "Recevoir mon lien"}
             </button>
           </>
         ) : (
           <>
             <h1 className="display mt-7 text-center text-[30px] font-extrabold">
-              Ton code
+              {parCode ? "Ton code" : "Regarde tes courriels"}
             </h1>
             <p className="mx-auto mt-2.5 max-w-[300px] text-center text-[13px] leading-relaxed text-fg/50">
-              Envoyé à <span className="font-semibold text-fg">{email}</span>.
-              Regarde aussi dans les indésirables.
+              {parCode ? "Envoyé à " : "On vient d'écrire à "}
+              <span className="font-semibold text-fg">{email}</span>.{" "}
+              {parCode
+                ? "Regarde aussi dans les indésirables."
+                : "Ouvre le message et clique sur le lien. Regarde aussi dans les indésirables."}
             </p>
 
-            <input
-              ref={codeRef}
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              value={code}
-              onChange={(e) => {
-                const v = e.target.value.replace(/\D/g, "").slice(0, 6);
-                setCode(v);
-                // Six chiffres saisis : on valide sans demander un clic de
-                // plus, le code n'a pas d'autre usage.
-                if (v.length === 6) {
-                  setTimeout(() => void verifierCode(), 120);
-                }
-              }}
-              placeholder="000000"
-              className="mt-7 h-16 w-full rounded-2xl glass text-center text-[30px] font-extrabold tracking-[.4em] tabular-nums outline-none placeholder:text-fg/20 focus:border-acid-500/40"
-            />
+            {parCode && (
+              <>
+                <input
+                  ref={codeRef}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={code}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, "").slice(0, 6);
+                    setCode(v);
+                    // Six chiffres saisis : on valide sans demander un clic
+                    // de plus, le code n'a pas d'autre usage.
+                    if (v.length === 6) {
+                      setTimeout(() => void verifierCode(), 120);
+                    }
+                  }}
+                  placeholder="000000"
+                  className="mt-7 h-16 w-full rounded-2xl glass text-center text-[30px] font-extrabold tracking-[.4em] tabular-nums outline-none placeholder:text-fg/20 focus:border-acid-500/40"
+                />
+
+                <button
+                  onClick={verifierCode}
+                  disabled={code.length !== 6 || envoi}
+                  className={cx(
+                    "mt-3 h-14 w-full rounded-full text-[16px] font-semibold transition active:scale-[.98]",
+                    code.length === 6 && !envoi
+                      ? "grad-brand text-ink glow-brand"
+                      : "bg-fg/8 text-fg/25 active:scale-100",
+                  )}
+                >
+                  {envoi ? "Vérification…" : "Entrer"}
+                </button>
+              </>
+            )}
+
+            {!parCode && (
+              <div className="mt-7 rounded-2xl border border-acid-500/25 bg-acid-500/[.06] px-4 py-4 text-center">
+                <p className="text-[12.5px] leading-relaxed text-acid-500">
+                  Ouvre le lien depuis <strong>ce téléphone</strong>. S&apos;il
+                  s&apos;ouvre ailleurs, la connexion se fera sur l&apos;autre
+                  appareil.
+                </p>
+              </div>
+            )}
 
             {erreur && (
               <p className="mt-3 rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-center text-[12.5px] text-red-400">
                 {erreur}
               </p>
             )}
-
-            <button
-              onClick={verifierCode}
-              disabled={code.length !== 6 || envoi}
-              className={cx(
-                "mt-3 h-14 w-full rounded-full text-[16px] font-semibold transition active:scale-[.98]",
-                code.length === 6 && !envoi
-                  ? "grad-brand text-ink glow-brand"
-                  : "bg-fg/8 text-fg/25 active:scale-100",
-              )}
-            >
-              {envoi ? "Vérification…" : "Entrer"}
-            </button>
 
             <button
               onClick={envoyerCode}
@@ -225,8 +254,10 @@ export function ConnexionView({
               )}
             >
               {renvoiDans > 0
-                ? `Renvoyer un code dans ${renvoiDans} s`
-                : "Renvoyer un code"}
+                ? `Renvoyer dans  s`
+                : parCode
+                  ? "Renvoyer un code"
+                  : "Renvoyer un lien"}
             </button>
           </>
         )}

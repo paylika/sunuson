@@ -1,50 +1,15 @@
 /**
- * La marque : une forme d'onde qui se redresse en A.
+ * La marque, servie depuis les fichiers fournis par le studio.
  *
- * Redessinée en tracé plutôt qu'importée en image — elle reste nette à toute
- * taille, pèse quelques octets, et prend la couleur du contexte. C'est aussi
- * ce même tracé qui sert de favicon.
+ * Pas de next/image : l'optimiseur d'images ne tourne pas sur Cloudflare
+ * Workers, et ces fichiers sont déjà dimensionnés à l'usage.
  *
- * Le dessin dit ce que fait le produit : l'écoute (l'onde, à gauche, basse)
- * devient de l'amplification (le pic, au centre).
+ * Les originaux livrés étaient sur fond noir opaque. Ils ont été détourés une
+ * fois pour toutes vers public/ ; les sources restent dans design/, hors du
+ * dossier servi, pour ne pas alourdir chaque déploiement.
  */
 
-export function Mark({
-  className,
-  size = 32,
-}: {
-  className?: string;
-  size?: number;
-}) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 100 100"
-      className={className}
-      role="img"
-      aria-label="Amplifan"
-    >
-      <path
-        d="M13 84 L18.5 55 L24 80 L29 67 L34.5 87 L50 19 L67 83"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="13"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* La barre du A, détachée : elle équilibre la masse à droite. */}
-      <path
-        d="M63 80 L84 74"
-        stroke="currentColor"
-        strokeWidth="13"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-/** Marque posée sur la tuile acide, comme sur l'icône de l'application. */
+/** L'icône carrée, fond acide. */
 export function MarkTile({
   className,
   size = 44,
@@ -53,32 +18,34 @@ export function MarkTile({
   size?: number;
 }) {
   return (
-    <span
-      className={`grid shrink-0 place-items-center rounded-[28%] bg-acid-500 text-ink ${className ?? ""}`}
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/icon-192.png"
+      alt="Amplifan"
+      width={size}
+      height={size}
+      className={`shrink-0 rounded-[24%] ${className ?? ""}`}
       style={{ width: size, height: size }}
-    >
-      <Mark size={size * 0.66} />
-    </span>
+    />
   );
 }
 
-/** Marque + nom, pour les entêtes. */
+/** Le lockup complet : la marque et le nom. */
 export function Wordmark({
-  size = 26,
+  size = 22,
   className,
 }: {
+  /** Hauteur en pixels. La largeur suit le rapport du fichier. */
   size?: number;
   className?: string;
 }) {
   return (
-    <span className={`inline-flex items-center gap-2 ${className ?? ""}`}>
-      <Mark size={size} className="text-acid-500" />
-      <span
-        className="font-extrabold tracking-[-.03em]"
-        style={{ fontSize: size * 0.92 }}
-      >
-        mplifan
-      </span>
-    </span>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/logo-wordmark.png"
+      alt="Amplifan"
+      className={className}
+      style={{ height: size, width: "auto" }}
+    />
   );
 }
