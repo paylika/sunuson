@@ -1,5 +1,5 @@
 import "server-only";
-import { supabase } from "./db";
+import { supabase as client } from "./db";
 import type { Artist, Clip, Support, Track } from "./types";
 import type { PaymentMethod } from "./config";
 
@@ -59,7 +59,8 @@ const TRACK_COLS =
 
 /** La base ne stocke que la clé ; l'URL publique se compose ici. */
 function audioUrl(key: string | null): string | undefined {
-  const base = process.env.NEXT_PUBLIC_AUDIO_BASE_URL;
+  const base =
+    process.env.AUDIO_BASE_URL || process.env.NEXT_PUBLIC_AUDIO_BASE_URL;
   if (!key || !base) return undefined;
   return `${base.replace(/\/$/, "")}/${key}`;
 }
@@ -114,6 +115,7 @@ function unwrap<T>(res: { data: T | null; error: { message: string } | null }): 
 /* ---------------------------------------------------------------- artistes */
 
 export async function getArtists(): Promise<Artist[]> {
+  const supabase = client();
   const rows = unwrap(
     await supabase
       .from("artists")
@@ -125,6 +127,7 @@ export async function getArtists(): Promise<Artist[]> {
 }
 
 export async function getArtistBySlug(slug: string): Promise<Artist | null> {
+  const supabase = client();
   const row = unwrap(
     await supabase
       .from("artists")
@@ -138,6 +141,7 @@ export async function getArtistBySlug(slug: string): Promise<Artist | null> {
 /* -------------------------------------------------------------------- sons */
 
 export async function getTracksByArtist(artistId: string): Promise<Track[]> {
+  const supabase = client();
   const rows = unwrap(
     await supabase
       .from("tracks")
@@ -156,6 +160,7 @@ export async function getTracksByArtist(artistId: string): Promise<Track[]> {
  * le jour où le catalogue dépassera quelques centaines de titres.
  */
 export async function getTrackTitles(): Promise<Map<string, string[]>> {
+  const supabase = client();
   const rows = unwrap(
     await supabase
       .from("tracks")
@@ -183,6 +188,7 @@ type ClipRow = {
 };
 
 export async function getClipsByArtist(artistId: string): Promise<Clip[]> {
+  const supabase = client();
   const rows = unwrap(
     await supabase
       .from("clips")
@@ -204,6 +210,7 @@ export async function getClipsByArtist(artistId: string): Promise<Clip[]> {
 
 /** Seuls les soutiens confirmés sont visibles : un 'pending' n'existe pas. */
 export async function getSupportsByArtist(artistId: string): Promise<Support[]> {
+  const supabase = client();
   const rows = unwrap(
     await supabase
       .from("supports")
@@ -243,6 +250,7 @@ const toBalance = (r: BalanceRow): Balance => ({
 });
 
 export async function getBalances(): Promise<Map<string, Balance>> {
+  const supabase = client();
   const rows = unwrap(
     await supabase.from("artist_balances").select("*").returns<BalanceRow[]>(),
   );
@@ -250,6 +258,7 @@ export async function getBalances(): Promise<Map<string, Balance>> {
 }
 
 export async function getBalance(artistId: string): Promise<Balance> {
+  const supabase = client();
   const row = unwrap(
     await supabase
       .from("artist_balances")

@@ -141,7 +141,8 @@ le nom ici si besoin. C'est le seul risque pour tes projets existants.
 Cloudflare Dashboard → **Workers & Pages** → **Create** → **Import a
 repository** → `paylika/sunuson`.
 
-Renseigner :
+Renseigner — **le build command par défaut (`npm run build`) ne convient pas** :
+il produit un build Next.js classique, pas un Worker.
 
 | Champ | Valeur |
 | --- | --- |
@@ -150,24 +151,23 @@ Renseigner :
 
 ### 3. Les variables d'environnement
 
-C'est l'étape où ça casse si on la bâcle, parce que les trois variables ne sont
-pas lues au même moment.
+**Aucune n'est nécessaire au build.** C'est délibéré : le build ne dépend pas
+de la configuration, il passe sur une machine vierge. Toutes sont lues à
+l'exécution, donc les changer ne demande pas de rebuild.
 
-| Variable | Type | Lue quand |
-| --- | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | Texte | **Au build** — Next l'inline dans le code |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Texte | **Au build** — idem |
-| `SUPABASE_SERVICE_ROLE_KEY` | **Secret** | **À l'exécution**, à chaque requête |
+| Variable | Type |
+| --- | --- |
+| `SUPABASE_URL` | Texte |
+| `SUPABASE_ANON_KEY` | Texte — bridée par la RLS |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Secret** — contourne toute la RLS |
+| `PAYMENT_WEBHOOK_SECRET` | **Secret** — sans lui le webhook répond 503 |
 
-Les deux premières doivent être présentes **dans le CI Cloudflare**, sinon le
-build échoue : `.env.local` n'existe que sur ta machine et n'est pas dans le
-dépôt. Les préfixer `NEXT_PUBLIC_` signifie qu'elles finissent dans le bundle
-du navigateur — c'est voulu, la clé anon est bridée par la RLS.
+À déclarer dans **Settings → Variables and Secrets** du Worker.
 
-La troisième doit être déclarée en **Secret**, jamais en texte. Elle contourne
-toute la RLS.
-
-Toutes se règlent dans **Settings → Variables and Secrets** du Worker.
+> Aucun nom n'est préfixé `NEXT_PUBLIC_`, et il ne faut pas le rajouter : Next
+> fige les `NEXT_PUBLIC_` au moment du build, donc les définir côté Cloudflare
+> n'aurait aucun effet. C'est exactement ce qui faisait échouer le premier
+> déploiement.
 
 ### 4. Déployer
 

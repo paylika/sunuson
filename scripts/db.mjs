@@ -17,13 +17,13 @@ try {
   process.exit(1);
 }
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!url || !key || key.includes("A_REMPLIR")) {
   console.error(
-    "NEXT_PUBLIC_SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY doivent être\n" +
-      "renseignés dans .env.local (Dashboard > Project Settings > API).",
+    "SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY doivent être renseignés\n" +
+      "dans .env.local (Dashboard > Project Settings > API).",
   );
   process.exit(1);
 }
