@@ -3,9 +3,10 @@ node_modules
 out
 build
 
-# Cloudflare : état local (dont le SQLite D1) et sortie de build du Worker
+# Cloudflare : état local, sortie de build du Worker, et secrets de dev
 .wrangler
 .open-next
+.dev.vars
 .DS_Store
 *.pem
 .env

@@ -116,16 +116,70 @@ sont **jamais** hébergés, seul l'identifiant YouTube est stocké.
 
 ## Déployer sur Cloudflare
 
-⚠️ **Vérifie d'abord qu'aucun de tes Workers ne s'appelle déjà `sunuson`** —
-c'est le seul cas où un déploiement écraserait un projet à toi. Le nom se
-change dans [`wrangler.jsonc`](wrangler.jsonc).
+> ⚠️ **Ne pas builder depuis Windows — c'est constaté, pas théorique.**
+> `npx opennextjs-cloudflare build` échoue ici à l'étape de bundling :
+> `ENOENT ... copyfile '.open-next\.build\open-next.config.edge.mjs'`.
+> OpenNext prévient lui-même qu'il n'est pas pleinement compatible Windows, et
+> le dossier du projet contient un accent (`C:\idée` devient `C:/id%C3%A9e`
+> dans les URL de fichiers), ce qui n'arrange rien.
+>
+> Le build Next.js lui-même passe : seul le bundling Worker casse. On laisse
+> donc Cloudflare builder depuis GitHub — son CI tourne sous Linux, où ni le
+> problème Windows ni celui de l'accent n'existent.
+>
+> Si un jour tu veux builder en local, la solution est WSL **et** un chemin de
+> projet sans accent.
+
+### 1. Vérifier le nom du Worker
+
+`wrangler.jsonc` déclare `"name": "sunuson"`. **Si un de tes Workers porte déjà
+ce nom, le déploiement l'écraserait.** Vérifie dans Workers & Pages, et change
+le nom ici si besoin. C'est le seul risque pour tes projets existants.
+
+### 2. Connecter le dépôt
+
+Cloudflare Dashboard → **Workers & Pages** → **Create** → **Import a
+repository** → `paylika/sunuson`.
+
+Renseigner :
+
+| Champ | Valeur |
+| --- | --- |
+| Build command | `npx opennextjs-cloudflare build` |
+| Deploy command | `npx opennextjs-cloudflare deploy` |
+
+### 3. Les variables d'environnement
+
+C'est l'étape où ça casse si on la bâcle, parce que les trois variables ne sont
+pas lues au même moment.
+
+| Variable | Type | Lue quand |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Texte | **Au build** — Next l'inline dans le code |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Texte | **Au build** — idem |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Secret** | **À l'exécution**, à chaque requête |
+
+Les deux premières doivent être présentes **dans le CI Cloudflare**, sinon le
+build échoue : `.env.local` n'existe que sur ta machine et n'est pas dans le
+dépôt. Les préfixer `NEXT_PUBLIC_` signifie qu'elles finissent dans le bundle
+du navigateur — c'est voulu, la clé anon est bridée par la RLS.
+
+La troisième doit être déclarée en **Secret**, jamais en texte. Elle contourne
+toute la RLS.
+
+Toutes se règlent dans **Settings → Variables and Secrets** du Worker.
+
+### 4. Déployer
+
+Un `git push` sur `main` déclenche le build et le déploiement.
+
+### Déployer depuis ta machine (déconseillé sous Windows)
+
+Si tu passes un jour sous WSL ou Linux :
 
 ```bash
 npx wrangler login
 ```
-
-Pousser la clé secrète, puis déclarer les `NEXT_PUBLIC_*` dans la section
-`vars` de `wrangler.jsonc` :
 
 ```bash
 npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
@@ -135,8 +189,9 @@ npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 npm run cf:deploy
 ```
 
-`npm run cf:preview` teste le build Worker en local avant de déployer quoi que
-ce soit.
+`npm run cf:preview` lance le Worker en local. Il lit la clé secrète depuis
+`.dev.vars` — un fichier généré à partir de `.env.local`, ignoré par git au
+même titre que lui.
 
 ## État actuel
 
