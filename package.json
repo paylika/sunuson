@@ -12,6 +12,9 @@
     "start": "next start",
     "lint": "next lint",
     "cf:typegen": "wrangler types",
+    "// cf:size": "Verifie que le Worker tient sous la limite de 3 Mio compressés du plan gratuit, sans deployer. A lancer apres `npm run cf:build`.",
+    "cf:size": "wrangler deploy --dry-run",
+    "icons": "node scripts/icons-build.mjs",
     "db:seed": "node scripts/db-seed.mjs",
     "db:inspect": "node scripts/db-inspect.mjs"
   },

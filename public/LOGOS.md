@@ -11,6 +11,22 @@
 Le favicon et l'icône iOS vivent dans `src/app/icon.png` et
 `src/app/apple-icon.png`, où Next les détecte automatiquement.
 
+## ⚠️ Ne jamais y mettre un gros fichier
+
+Ces deux-là ne sont pas de simples fichiers statiques : Next.js les transforme
+en routes et **encode le PNG en base64 dans le code du Worker**. Le logo en
+1024×1024 y ajoutait 2,8 Mio et faisait échouer le déploiement Cloudflare
+(limite de 3 Mio compressés sur le plan gratuit, `code: 10027`).
+
+Ne les modifie donc pas à la main. Le logo maître est `icon-1024.png` ; toutes
+les tailles servies en descendent :
+
+```bash
+npm run icons
+```
+
+Après quoi `npm run cf:build && npm run cf:size` dit si le Worker tient.
+
 ## Sources
 
 Les originaux livrés sont dans `design/`, **hors du dossier servi** : ils
