@@ -220,11 +220,13 @@ export function HomeView({
             Tes fans écoutent gratuitement et t&apos;envoient de l&apos;argent
             en deux clics.
           </p>
+          {/* Vers la page qui explique, pas vers l'espace : quelqu'un qui lit
+              cette carte n'est pas encore convaincu. */}
           <Link
-            href="/dashboard"
+            href="/artistes"
             className="mt-5 flex h-13 items-center justify-center gap-2 rounded-full bg-ink text-[15px] font-semibold text-fg transition active:scale-[.98]"
           >
-            Ouvrir mon espace
+            Comment ça marche
             <ChevronRight size={16} />
           </Link>
         </div>

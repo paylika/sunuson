@@ -254,7 +254,7 @@ export function ConnexionView({
               )}
             >
               {renvoiDans > 0
-                ? `Renvoyer dans  s`
+                ? `Renvoyer dans ${renvoiDans} s`
                 : parCode
                   ? "Renvoyer un code"
                   : "Renvoyer un lien"}
