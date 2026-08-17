@@ -75,10 +75,12 @@ export function TrackRow({
         </div>
         <div className="mt-0.5 flex items-center gap-1.5 overflow-hidden whitespace-nowrap text-[11.5px] text-fg/40">
           <span className="tabular-nums">{duration(track.duration)}</span>
-          {track.featuring && (
+          {track.collaborators.length > 0 && (
             <>
               <Dot />
-              <span className="truncate">feat. {track.featuring}</span>
+              <span className="truncate">
+                feat. {track.collaborators.map((c) => c.name).join(", ")}
+              </span>
             </>
           )}
           {!locked && track.plays > 0 && (

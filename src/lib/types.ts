@@ -33,6 +33,22 @@ export type Artist = {
  */
 export type SupportMode = "libre" | "fixe";
 
+/**
+ * Un invité sur un morceau. `artistId` n'existe que si l'invité est inscrit
+ * sur la plateforme — dans ce cas sa part lui est réellement versée. Sinon on
+ * garde son nom pour l'afficher, et la part reste à l'artiste principal.
+ */
+export type Collaborator = {
+  id: string;
+  artistId?: string;
+  slug?: string;
+  name: string;
+  avatarUrl?: string;
+  gradient?: [string, string];
+  /** Pourcentage des soutiens reçus sur ce morceau. */
+  share: number;
+};
+
 export type Track = {
   id: string;
   artistId: string;
@@ -51,7 +67,8 @@ export type Track = {
   supportMode: SupportMode;
   /** Prix imposé, uniquement quand supportMode vaut 'fixe'. */
   supportAmount?: number;
-  featuring?: string;
+  /** Invités, avec leur part. Vide sur un morceau solo. */
+  collaborators: Collaborator[];
 };
 
 export type Clip = {

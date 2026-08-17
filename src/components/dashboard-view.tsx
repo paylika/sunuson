@@ -9,19 +9,15 @@ import {
   MIN_SUPPORT,
   PAYMENT_METHODS,
 } from "@/lib/config";
-import { createTrack, requestPayout, updateArtistImage } from "@/lib/actions";
+import { requestPayout, updateArtistImage } from "@/lib/actions";
 import { compact, duration, fcfa, timeAgo } from "@/lib/format";
-import {
-  checkCoverDimensions,
-  COVER_RULES,
-  PHOTO_RULES,
-} from "@/lib/storage";
+import { PHOTO_RULES } from "@/lib/storage";
 import type { Balance } from "@/lib/queries";
 import type { Artist, Clip, Support, Track } from "@/lib/types";
 import { ArtistView } from "./artist-view";
+import { TrackUploadSheet } from "./track-upload-sheet";
 import {
   Avatar,
-  Button,
   Cover,
   cx,
   Glass,
@@ -30,7 +26,7 @@ import {
   SectionTitle,
   Stat,
 } from "./ui";
-import { Check, Copy, Lock, Music, Plus, Spark, Upload, Wallet } from "./icons";
+import { Check, Copy, Lock, Plus, Wallet } from "./icons";
 
 type Vue = "artiste" | "fan";
 
@@ -113,6 +109,7 @@ function AtelierView({
 }) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const link = `${APP_DOMAIN}/a/${artist.slug}`;
@@ -238,9 +235,29 @@ function AtelierView({
 
       {/* --------------------------------------------------------- upload */}
       <section className="mt-8">
-        <SectionTitle>Déposer un son</SectionTitle>
-        <UploadForm artist={artist} />
+        <button
+          onClick={() => setUploadOpen(true)}
+          className="flex w-full items-center gap-3.5 rounded-[26px] grad-brand px-5 py-4 text-left text-white glow-brand transition active:scale-[.99]"
+        >
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/20 backdrop-blur-md">
+            <Plus size={20} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15.5px] font-bold">
+              Déposer un son
+            </span>
+            <span className="block text-[11.5px] text-white/75">
+              Pochette, featuring, prix — tout au même endroit
+            </span>
+          </span>
+        </button>
       </section>
+
+      <TrackUploadSheet
+        artist={artist}
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+      />
 
       {/* ----------------------------------------------------------- sons */}
       <section className="mt-8">
@@ -489,337 +506,5 @@ function PencilIcon({ size = 15 }: { size?: number }) {
       <path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17v3Z" />
       <path d="m14.5 6.5 3 3" />
     </svg>
-  );
-}
-
-/* ================================================================ upload */
-
-function UploadForm({ artist }: { artist: Artist }) {
-  const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [featuring, setFeaturing] = useState("");
-  const [label, setLabel] = useState(artist.label ?? "");
-  const [audio, setAudio] = useState<File | null>(null);
-  const [cover, setCover] = useState<File | null>(null);
-  const [coverPreview, setCoverPreview] = useState<string | null>(null);
-  const [coverInfo, setCoverInfo] = useState<string | null>(null);
-  const [locked, setLocked] = useState(false);
-  const [mode, setMode] = useState<"libre" | "fixe">("libre");
-  const [amount, setAmount] = useState("2000");
-  const [rights, setRights] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
-  const [pending, startTransition] = useTransition();
-
-  const audioRef = useRef<HTMLInputElement>(null);
-  const coverRef = useRef<HTMLInputElement>(null);
-
-  const ready = title.trim().length > 1 && rights && !pending;
-
-  async function pickCover(file: File) {
-    setError(null);
-    const check = await checkCoverDimensions(file);
-
-    if (!check.ok) {
-      setError(check.error);
-      setCover(null);
-      setCoverPreview(null);
-      setCoverInfo(null);
-      return;
-    }
-
-    setCover(file);
-    setCoverPreview(URL.createObjectURL(file));
-    setCoverInfo(
-      `${check.width}×${check.height}${
-        (check.width ?? 0) < COVER_RULES.idealSize
-          ? ` · en dessous des ${COVER_RULES.idealSize} px idéaux`
-          : " · parfait"
-      }`,
-    );
-  }
-
-  function submit() {
-    setError(null);
-    startTransition(async () => {
-      const fd = new FormData();
-      fd.set("artistId", artist.id);
-      fd.set("artistSlug", artist.slug);
-      fd.set("title", title);
-      fd.set("featuring", featuring);
-      fd.set("label", label);
-      fd.set("locked", locked ? "1" : "0");
-      fd.set("rightsOk", rights ? "1" : "0");
-      fd.set("supportMode", locked ? mode : "libre");
-      fd.set("supportAmount", amount);
-      if (cover) fd.set("cover", cover);
-
-      const res = await createTrack(fd);
-      if (!res.ok) {
-        setError(res.error);
-        return;
-      }
-
-      setTitle("");
-      setFeaturing("");
-      setAudio(null);
-      setCover(null);
-      setCoverPreview(null);
-      setCoverInfo(null);
-      setLocked(false);
-      setMode("libre");
-      setRights(false);
-      if (audioRef.current) audioRef.current.value = "";
-      if (coverRef.current) coverRef.current.value = "";
-      setDone(true);
-      window.setTimeout(() => setDone(false), 2400);
-      router.refresh();
-    });
-  }
-
-  return (
-    <Glass className="rounded-[26px] p-4">
-      {/* ------------------------------------------------------ pochette */}
-      <div className="flex gap-3.5">
-        <button
-          onClick={() => coverRef.current?.click()}
-          className="relative h-28 w-28 shrink-0 overflow-hidden rounded-2xl border border-dashed border-fg/20 bg-fg/[.03] transition active:scale-[.97]"
-        >
-          {coverPreview ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={coverPreview}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-          ) : (
-            <span className="grid h-full place-items-center text-fg/35">
-              <Plus size={22} />
-            </span>
-          )}
-        </button>
-
-        <div className="min-w-0 flex-1">
-          <div className="text-[13.5px] font-semibold">Pochette</div>
-          <p className="mt-1 text-[11.5px] leading-relaxed text-fg/45">
-            Carrée, {COVER_RULES.minSize}×{COVER_RULES.minSize} minimum,{" "}
-            {COVER_RULES.idealSize}×{COVER_RULES.idealSize} idéal. JPG ou PNG.
-          </p>
-          {coverInfo && (
-            <p className="mt-1.5 text-[11.5px] font-medium text-brand-300">
-              {coverInfo}
-            </p>
-          )}
-          <p className="mt-1.5 text-[10.5px] leading-relaxed text-fg/35">
-            Pas de logo de réseau social ni d&apos;adresse web : les
-            plateformes de streaming refusent.
-          </p>
-        </div>
-      </div>
-
-      {/* --------------------------------------------------------- audio */}
-      <button
-        onClick={() => audioRef.current?.click()}
-        className="mt-3.5 flex w-full items-center gap-3.5 rounded-2xl border border-dashed border-fg/20 bg-fg/[.03] px-4 py-4 text-left transition active:scale-[.99]"
-      >
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl grad-brand text-white">
-          <Upload size={17} />
-        </span>
-        <span className="min-w-0">
-          <span className="block truncate text-[13.5px] font-semibold">
-            {audio ? audio.name : "Choisir le fichier audio"}
-          </span>
-          <span className="block text-[11px] text-fg/40">
-            MP3 ou WAV · encodé en 128 kbps à l&apos;envoi
-          </span>
-        </span>
-      </button>
-
-      {/* --------------------------------------------------------- champs */}
-      <input
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Titre du son"
-        maxLength={60}
-        className="mt-3 w-full rounded-2xl glass px-4 py-3.5 text-[14px] outline-none placeholder:text-fg/35"
-      />
-      <div className="mt-2.5 grid grid-cols-2 gap-2.5">
-        <input
-          value={featuring}
-          onChange={(e) => setFeaturing(e.target.value)}
-          placeholder="Featuring"
-          maxLength={60}
-          className="w-full rounded-2xl glass px-4 py-3.5 text-[14px] outline-none placeholder:text-fg/35"
-        />
-        <input
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          placeholder="Label"
-          maxLength={60}
-          className="w-full rounded-2xl glass px-4 py-3.5 text-[14px] outline-none placeholder:text-fg/35"
-        />
-      </div>
-      <p className="mt-1.5 px-1 text-[10.5px] text-fg/35">
-        Le nom d&apos;artiste vient de ton compte. Laisse le label vide si tu es
-        indépendant.
-      </p>
-
-      {/* ----------------------------------------------------- exclusivité */}
-      <button
-        onClick={() => setLocked((v) => !v)}
-        className="mt-3.5 flex w-full items-center gap-3 rounded-2xl glass px-4 py-3.5 text-left"
-      >
-        <Lock size={16} className={locked ? "text-gold-700" : "text-fg/40"} />
-        <span className="min-w-0 flex-1">
-          <span className="block text-[13.5px] font-semibold">
-            Réservé aux soutiens
-          </span>
-          <span className="block text-[11px] text-fg/40">
-            Écoutable seulement après paiement
-          </span>
-        </span>
-        <span
-          className={cx(
-            "relative h-6 w-11 shrink-0 rounded-full transition",
-            locked ? "grad-brand" : "bg-fg/15",
-          )}
-        >
-          <span
-            className={cx(
-              "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-all",
-              locked ? "left-[22px]" : "left-0.5",
-            )}
-          />
-        </span>
-      </button>
-
-      {/* --------------------------------------------------- mode de soutien */}
-      {locked && (
-        <div className="mt-2.5 rounded-2xl glass p-3.5 fade">
-          <div className="text-[12px] font-medium text-fg/45">
-            Comment le fan débloque ce son
-          </div>
-
-          <div className="mt-2.5 grid grid-cols-2 gap-2">
-            {(
-              [
-                ["libre", "Soutien libre", "Il choisit son montant"],
-                ["fixe", "Prix fixe", "Tu imposes le montant"],
-              ] as const
-            ).map(([id, titre, sous]) => (
-              <button
-                key={id}
-                onClick={() => setMode(id)}
-                className={cx(
-                  "rounded-2xl px-3 py-3 text-left transition",
-                  mode === id
-                    ? "grad-brand text-white"
-                    : "bg-fg/[.05] text-fg/70 active:scale-[.97]",
-                )}
-              >
-                <span className="block text-[13px] font-semibold">{titre}</span>
-                <span
-                  className={cx(
-                    "mt-0.5 block text-[10.5px]",
-                    mode === id ? "text-white/75" : "text-fg/40",
-                  )}
-                >
-                  {sous}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {mode === "fixe" && (
-            <div className="mt-2.5 flex items-center gap-2.5 rounded-2xl bg-fg/[.05] px-4 py-3 fade">
-              <input
-                inputMode="numeric"
-                value={amount}
-                onChange={(e) =>
-                  setAmount(e.target.value.replace(/\D/g, "").slice(0, 7))
-                }
-                className="w-full bg-transparent text-[16px] font-bold tabular-nums outline-none"
-              />
-              <span className="shrink-0 text-[12px] font-medium text-fg/45">
-                FCFA
-              </span>
-            </div>
-          )}
-
-          <p className="mt-2.5 text-[10.5px] leading-relaxed text-fg/40">
-            {mode === "fixe"
-              ? `Le fan paiera exactement ce montant. Minimum ${MIN_SUPPORT} FCFA.`
-              : "Le fan choisit combien il envoie — souvent plus qu'un prix imposé quand il tient à l'artiste."}
-          </p>
-        </div>
-      )}
-
-      {/* ---------------------------------------------------------- droits */}
-      <button
-        onClick={() => setRights((v) => !v)}
-        className="mt-3 flex w-full items-start gap-3 px-1 py-2 text-left"
-      >
-        <span
-          className={cx(
-            "mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border transition",
-            rights ? "border-transparent grad-brand text-white" : "border-fg/25",
-          )}
-        >
-          {rights && <Check size={12} />}
-        </span>
-        <span className="text-[11.5px] leading-relaxed text-fg/50">
-          Je détiens les droits sur ce morceau et sa pochette, et j&apos;autorise
-          leur diffusion sur la plateforme.
-        </span>
-      </button>
-
-      {error && (
-        <p className="mt-2 rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-2.5 text-[12.5px] leading-snug text-red-600">
-          {error}
-        </p>
-      )}
-
-      <Button onClick={submit} disabled={!ready} className="mt-3 w-full">
-        {done ? (
-          <>
-            <Check size={16} /> Son publié
-          </>
-        ) : pending ? (
-          "Publication…"
-        ) : (
-          <>
-            <Spark size={16} /> Publier le son
-          </>
-        )}
-      </Button>
-
-      <p className="mt-2.5 px-1 text-[11px] leading-relaxed text-fg/35">
-        La pochette est envoyée, pas encore le fichier audio : le lecteur
-        simulera la lecture en attendant.
-      </p>
-
-      <input
-        ref={audioRef}
-        type="file"
-        accept="audio/*"
-        hidden
-        onChange={(e) => {
-          const f = e.target.files?.[0] ?? null;
-          setAudio(f);
-          if (f && !title) setTitle(f.name.replace(/\.[^.]+$/, ""));
-        }}
-      />
-      <input
-        ref={coverRef}
-        type="file"
-        accept={COVER_RULES.types.join(",")}
-        hidden
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) void pickCover(f);
-          e.target.value = "";
-        }}
-      />
-    </Glass>
   );
 }

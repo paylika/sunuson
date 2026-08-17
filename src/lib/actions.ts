@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "./db";
+import { searchArtists } from "./queries";
 import { MAX_SUPPORT, MIN_SUPPORT, type PaymentMethod } from "./config";
 import {
   checkImageFile,
@@ -171,7 +172,6 @@ export async function createTrack(formData: FormData): Promise<ActionResult> {
   const artistSlug = String(formData.get("artistSlug") ?? "");
   const title = String(formData.get("title") ?? "").trim().slice(0, 60);
   const label = String(formData.get("label") ?? "").trim().slice(0, 60);
-  const featuring = String(formData.get("featuring") ?? "").trim().slice(0, 60);
   const locked = formData.get("locked") === "1";
   const rightsOk = formData.get("rightsOk") === "1";
   const supportMode = formData.get("supportMode") === "fixe" ? "fixe" : "libre";
@@ -193,6 +193,44 @@ export async function createTrack(formData: FormData): Promise<ActionResult> {
     }
   }
 
+  // Les invités arrivent en JSON. Un partage de revenus se valide ici, jamais
+  // sur la seule foi de l'interface.
+  let guests: { artistId?: string; name: string; share: number }[] = [];
+  try {
+    const raw = String(formData.get("collaborators") ?? "[]");
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      guests = parsed
+        .map((g) => {
+          const item = g as Record<string, unknown>;
+          return {
+            artistId:
+              typeof item.artistId === "string" ? item.artistId : undefined,
+            name: String(item.name ?? "").trim().slice(0, 60),
+            share: Math.round(Number(item.share ?? 0) * 100) / 100,
+          };
+        })
+        .filter((g) => g.name.length > 0);
+    }
+  } catch {
+    return { ok: false, error: "Liste des invités illisible." };
+  }
+
+  if (guests.some((g) => !Number.isFinite(g.share) || g.share < 0 || g.share > 100)) {
+    return { ok: false, error: "Chaque part doit être comprise entre 0 et 100 %." };
+  }
+
+  const totalShare = guests.reduce((sum, g) => sum + g.share, 0);
+  if (totalShare > 100) {
+    return {
+      ok: false,
+      error: `Les parts totalisent ${totalShare} %. Il ne te resterait rien.`,
+    };
+  }
+  if (guests.some((g) => g.artistId === artistId)) {
+    return { ok: false, error: "Tu ne peux pas t'inviter sur ton propre son." };
+  }
+
   let coverKey: string | null = null;
   const cover = formData.get("cover");
   if (cover instanceof File && cover.size > 0) {
@@ -212,24 +250,64 @@ export async function createTrack(formData: FormData): Promise<ActionResult> {
     .limit(1)
     .maybeSingle();
 
-  const { error } = await admin.from("tracks").insert({
-    artist_id: artistId,
-    title,
-    label: label || null,
-    featuring: featuring || null,
-    cover_key: coverKey,
-    locked,
-    rights_ok: true,
-    duration: 0,
-    support_mode: supportMode,
-    support_amount: supportMode === "fixe" ? supportAmount : null,
-    position: (last?.position ?? 0) + 1,
-  });
+  const { data: track, error } = await admin
+    .from("tracks")
+    .insert({
+      artist_id: artistId,
+      title,
+      label: label || null,
+      cover_key: coverKey,
+      locked,
+      rights_ok: true,
+      duration: 0,
+      support_mode: supportMode,
+      support_amount: supportMode === "fixe" ? supportAmount : null,
+      position: (last?.position ?? 0) + 1,
+    })
+    .select("id")
+    .single();
 
-  if (error) return { ok: false, error: error.message };
+  if (error || !track) {
+    return { ok: false, error: error?.message ?? "Insertion impossible." };
+  }
+
+  if (guests.length > 0) {
+    const { error: guestError } = await admin
+      .from("track_collaborators")
+      .insert(
+        guests.map((g) => ({
+          track_id: track.id,
+          artist_id: g.artistId ?? null,
+          display_name: g.name,
+          share_percent: g.share,
+        })),
+      );
+
+    // Le morceau existe déjà : on le retire plutôt que de le laisser publié
+    // avec un partage incomplet — le désaccord sur l'argent vient après.
+    if (guestError) {
+      await admin.from("tracks").delete().eq("id", track.id);
+      return { ok: false, error: guestError.message };
+    }
+  }
 
   revalidateAll(artistSlug);
   return { ok: true };
+}
+
+/** Alimente le champ « @ » du featuring. */
+export async function findArtists(
+  query: string,
+  excludeId?: string,
+): Promise<{ id: string; slug: string; name: string; avatarUrl?: string; gradient: [string, string] }[]> {
+  const results = await searchArtists(query, excludeId);
+  return results.map((a) => ({
+    id: a.id,
+    slug: a.slug,
+    name: a.name,
+    avatarUrl: a.avatarUrl,
+    gradient: a.gradient,
+  }));
 }
 
 /* ============================================================== retraits */

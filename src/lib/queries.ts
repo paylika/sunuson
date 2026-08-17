@@ -1,7 +1,7 @@
 import "server-only";
 import { supabase as client } from "./db";
 import { COVERS_BUCKET } from "./storage";
-import type { Artist, Clip, Support, Track } from "./types";
+import type { Artist, Clip, Collaborator, Support, Track } from "./types";
 import type { PaymentMethod } from "./config";
 
 /**
@@ -73,11 +73,10 @@ type TrackRow = {
   locked: boolean;
   support_mode: string;
   support_amount: number | null;
-  featuring: string | null;
 };
 
 const TRACK_COLS =
-  "id, artist_id, title, duration, plays, released_at, audio_key, cover_key, label, locked, support_mode, support_amount, featuring";
+  "id, artist_id, title, duration, plays, released_at, audio_key, cover_key, label, locked, support_mode, support_amount";
 
 /** La base ne stocke que la clé ; l'URL publique se compose ici. */
 function audioUrl(key: string | null): string | undefined {
@@ -101,8 +100,61 @@ function toTrack(r: TrackRow): Track {
     locked: r.locked,
     supportMode: r.support_mode === "fixe" ? "fixe" : "libre",
     supportAmount: r.support_amount ?? undefined,
-    featuring: r.featuring ?? undefined,
+    collaborators: [],
   };
+}
+
+type CollabRow = {
+  id: string;
+  track_id: string;
+  artist_id: string | null;
+  display_name: string;
+  share_percent: number;
+  artists: {
+    slug: string;
+    avatar_key: string | null;
+    gradient_from: string;
+    gradient_to: string;
+  } | null;
+};
+
+/**
+ * Charge les invités de plusieurs morceaux d'un coup. Une requête par morceau
+ * ferait exploser le nombre d'allers-retours sur une page qui en liste vingt.
+ */
+async function collaboratorsFor(
+  trackIds: string[],
+): Promise<Map<string, Collaborator[]>> {
+  const byTrack = new Map<string, Collaborator[]>();
+  if (trackIds.length === 0) return byTrack;
+
+  const rows = unwrap(
+    await client()
+      .from("track_collaborators")
+      .select(
+        "id, track_id, artist_id, display_name, share_percent, artists(slug, avatar_key, gradient_from, gradient_to)",
+      )
+      .in("track_id", trackIds)
+      .returns<CollabRow[]>(),
+  );
+
+  for (const r of rows) {
+    const entry: Collaborator = {
+      id: r.id,
+      artistId: r.artist_id ?? undefined,
+      slug: r.artists?.slug,
+      name: r.display_name,
+      avatarUrl: imageUrl(r.artists?.avatar_key),
+      gradient: r.artists
+        ? [r.artists.gradient_from, r.artists.gradient_to]
+        : undefined,
+      share: Number(r.share_percent),
+    };
+    const list = byTrack.get(r.track_id);
+    if (list) list.push(entry);
+    else byTrack.set(r.track_id, [entry]);
+  }
+  return byTrack;
 }
 
 type SupportRow = {
@@ -176,7 +228,34 @@ export async function getTracksByArtist(artistId: string): Promise<Track[]> {
       .order("position")
       .returns<TrackRow[]>(),
   );
-  return rows.map(toTrack);
+
+  const tracks = rows.map(toTrack);
+  const collabs = await collaboratorsFor(tracks.map((t) => t.id));
+  for (const t of tracks) t.collaborators = collabs.get(t.id) ?? [];
+  return tracks;
+}
+
+/**
+ * Recherche d'artistes pour le champ « @ » du featuring.
+ * `ilike` suffit à cette échelle ; passer à une recherche plein texte le jour
+ * où le catalogue dépassera quelques milliers de profils.
+ */
+export async function searchArtists(
+  query: string,
+  excludeId?: string,
+): Promise<Artist[]> {
+  const q = query.trim();
+  if (q.length < 1) return [];
+
+  let request = client()
+    .from("artists")
+    .select(ARTIST_COLS)
+    .ilike("name", `%${q}%`)
+    .limit(6);
+
+  if (excludeId) request = request.neq("id", excludeId);
+
+  return unwrap(await request.returns<ArtistRow[]>()).map(toArtist);
 }
 
 /**
