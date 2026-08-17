@@ -9,7 +9,11 @@ import {
   MIN_SUPPORT,
   PAYMENT_METHODS,
 } from "@/lib/config";
-import { requestPayout, updateArtistImage } from "@/lib/actions";
+import {
+  requestPayout,
+  updateArtistImage,
+  updateArtistProfile,
+} from "@/lib/actions";
 import { compact, duration, fcfa, timeAgo } from "@/lib/format";
 import { PHOTO_RULES } from "@/lib/storage";
 import type { Balance } from "@/lib/queries";
@@ -18,6 +22,7 @@ import { ArtistView } from "./artist-view";
 import { TrackUploadSheet } from "./track-upload-sheet";
 import {
   Avatar,
+  Button,
   Cover,
   cx,
   Glass,
@@ -374,30 +379,34 @@ function ProfileEditor({ artist }: { artist: Artist }) {
 
   return (
     <section className="rise">
-      <div className="relative">
-        {/* Bannière */}
+      {/* Cadrage IDENTIQUE à la page publique : même hauteur, même fondu vers
+          le fond, même position de la photo. L'artiste voit exactement ce que
+          verra le fan — sinon il cadre son image sur une bande et découvre
+          ensuite qu'elle est rognée. */}
+      <div className="relative -mx-4">
         <Cover
           gradient={artist.gradient}
           src={artist.coverUrl}
           alt=""
-          rounded="rounded-[30px]"
-          className="h-36 w-full"
+          rounded="rounded-b-[38px]"
+          className="h-[300px] w-full"
         />
+        <div className="absolute inset-x-0 bottom-0 h-44 rounded-b-[38px] bg-gradient-to-t from-bg via-bg/70 to-transparent" />
+
         <PencilButton
           label="Changer la bannière"
           busy={busy === "cover"}
           onClick={() => coverRef.current?.click()}
-          className="absolute right-3 top-3"
+          className="absolute right-4 top-4"
         />
 
-        {/* Photo de profil, à cheval sur la bannière */}
-        <div className="absolute -bottom-8 left-5">
-          <div className="relative">
+        <div className="absolute inset-x-5 bottom-5 flex items-end gap-3.5">
+          <div className="relative shrink-0">
             <Avatar
               name={artist.name}
               gradient={artist.gradient}
               src={artist.avatarUrl}
-              size={80}
+              size={76}
               ring
             />
             <PencilButton
@@ -408,19 +417,15 @@ function ProfileEditor({ artist }: { artist: Artist }) {
               small
             />
           </div>
+          <div className="min-w-0 pb-1.5">
+            <div className="text-[10.5px] uppercase tracking-[.14em] text-fg/40">
+              Espace artiste
+            </div>
+            <div className="text-[26px] font-bold leading-[1.05]">
+              <NameWithBadge name={artist.name} verified={artist.verified} />
+            </div>
+          </div>
         </div>
-      </div>
-
-      <div className="mt-11 px-1">
-        <div className="text-[11px] uppercase tracking-[.14em] text-fg/35">
-          Espace artiste
-        </div>
-        <div className="text-[22px] font-bold leading-tight">
-          <NameWithBadge name={artist.name} verified={artist.verified} />
-        </div>
-        <p className="mt-0.5 text-[12.5px] text-fg/45">
-          {artist.label ? artist.label : "Indépendant"} · {artist.city}
-        </p>
       </div>
 
       {error && (
@@ -428,6 +433,8 @@ function ProfileEditor({ artist }: { artist: Artist }) {
           {error}
         </p>
       )}
+
+      <ProfileFields artist={artist} />
 
       <input
         ref={avatarRef}
@@ -452,6 +459,113 @@ function ProfileEditor({ artist }: { artist: Artist }) {
         }}
       />
     </section>
+  );
+}
+
+/**
+ * Bio, ville et label. Le bouton d'enregistrement n'apparaît qu'une fois
+ * quelque chose modifié : sans ça, l'artiste ne sait pas s'il a un
+ * changement en attente.
+ */
+function ProfileFields({ artist }: { artist: Artist }) {
+  const router = useRouter();
+  const [bio, setBio] = useState(artist.bio);
+  const [city, setCity] = useState(artist.city);
+  const [label, setLabel] = useState(artist.label ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  const dirty =
+    bio !== artist.bio ||
+    city !== artist.city ||
+    label !== (artist.label ?? "");
+
+  function save() {
+    setError(null);
+    startTransition(async () => {
+      const res = await updateArtistProfile({
+        artistId: artist.id,
+        artistSlug: artist.slug,
+        bio,
+        city,
+        label,
+      });
+      if (!res.ok) {
+        setError(res.error ?? "Enregistrement impossible.");
+        return;
+      }
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2200);
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="mt-5">
+      <div className="mb-2 flex items-baseline justify-between px-1">
+        <span className="text-[12px] font-semibold text-fg/50">
+          Ma présentation
+        </span>
+        <span className="text-[10.5px] tabular-nums text-fg/35">
+          {bio.length}/300
+        </span>
+      </div>
+
+      <textarea
+        value={bio}
+        onChange={(e) => setBio(e.target.value.slice(0, 300))}
+        placeholder="Deux ou trois phrases : ton style, d'où tu viens, ce qui arrive."
+        rows={4}
+        className="w-full resize-none rounded-2xl glass px-4 py-3.5 text-[13.5px] leading-relaxed outline-none placeholder:text-fg/35"
+      />
+
+      <div className="mt-2.5 grid grid-cols-2 gap-2.5">
+        <input
+          value={city}
+          onChange={(e) => setCity(e.target.value)}
+          placeholder="Ville"
+          maxLength={60}
+          className="w-full rounded-2xl glass px-4 py-3.5 text-[14px] outline-none placeholder:text-fg/35"
+        />
+        <input
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder="Label"
+          maxLength={60}
+          className="w-full rounded-2xl glass px-4 py-3.5 text-[14px] outline-none placeholder:text-fg/35"
+        />
+      </div>
+
+      <p className="mt-1.5 px-1 text-[10.5px] leading-relaxed text-fg/35">
+        Label vide = affiché « Indépendant ». Ton nom d&apos;artiste vient de
+        ton compte, il ne se modifie pas ici.
+      </p>
+
+      {error && (
+        <p className="mt-2 rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-2.5 text-[12.5px] text-red-600">
+          {error}
+        </p>
+      )}
+
+      {(dirty || saved) && (
+        <Button
+          onClick={save}
+          disabled={pending || !dirty}
+          className="mt-3 w-full fade"
+        >
+          {saved ? (
+            <>
+              <Check size={16} /> Enregistré
+            </>
+          ) : pending ? (
+            "Enregistrement…"
+          ) : (
+            "Enregistrer les modifications"
+          )}
+        </Button>
+      )}
+    </div>
   );
 }
 

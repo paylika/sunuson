@@ -135,6 +135,29 @@ async function putImage(
   return { ok: true, key };
 }
 
+/** Texte du profil : bio, ville, label. */
+export async function updateArtistProfile(input: {
+  artistId: string;
+  artistSlug: string;
+  bio: string;
+  city: string;
+  label: string;
+}): Promise<ActionResult> {
+  const bio = (input.bio || "").trim().slice(0, 300);
+  const city = (input.city || "").trim().slice(0, 60);
+  const label = (input.label || "").trim().slice(0, 60);
+
+  const { error } = await supabaseAdmin()
+    .from("artists")
+    .update({ bio, city, label: label || null })
+    .eq("id", input.artistId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidateAll(input.artistSlug);
+  return { ok: true };
+}
+
 /** Photo de profil ou bannière de l'artiste. */
 export async function updateArtistImage(
   formData: FormData,
