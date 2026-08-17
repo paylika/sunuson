@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "opennextjs-cloudflare build",
+    "// build": "NE JAMAIS pointer sur opennextjs-cloudflare : OpenNext appelle lui-même `npm run build` pour construire l'app Next.js, ce qui crée une récursion infinie jusqu'au timeout du CI.",
+    "build": "next build",
+    "cf:build": "opennextjs-cloudflare build",
     "deploy": "opennextjs-cloudflare deploy",
     "preview": "opennextjs-cloudflare preview",
-    "build:next": "next build",
     "start": "next start",
     "lint": "next lint",
     "cf:typegen": "wrangler types",
