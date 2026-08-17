@@ -198,3 +198,58 @@ create policy "artiste voit ses retraits" on public.payouts
 insert into storage.buckets (id, name, public)
 values ('audio', 'audio', true)
 on conflict (id) do nothing;
+
+-- =============================================================================
+--  Évolutions
+--  Ajoutées après coup, séparées pour rester relançables sur une base
+--  existante : `create table if not exists` n'ajoute rien à une table déjà là.
+-- =============================================================================
+
+-- ------------------------------------------------- identité de l'artiste
+
+alter table public.artists add column if not exists label      text;
+alter table public.artists add column if not exists avatar_key text;
+alter table public.artists add column if not exists cover_key  text;
+
+-- ------------------------------------------------------------ un morceau
+
+alter table public.tracks add column if not exists cover_key text;
+alter table public.tracks add column if not exists label     text;
+
+-- Comment le fan paie CE morceau :
+--   'libre' -> il choisit son montant, comme sur la page de l'artiste
+--   'fixe'  -> l'artiste impose un prix, le fan ne peut pas le changer
+-- C'est ce qui transforme un inédit en vente plutôt qu'en don.
+alter table public.tracks add column if not exists support_mode text
+  not null default 'libre';
+
+alter table public.tracks add column if not exists support_amount integer;
+
+do $$
+begin
+  alter table public.tracks
+    add constraint tracks_support_mode_check
+    check (support_mode in ('libre', 'fixe'));
+exception
+  when duplicate_object then null;
+end $$;
+
+-- Un montant fixe sans prix n'a pas de sens : on l'interdit en base plutôt
+-- que d'espérer que l'interface y pense toujours.
+do $$
+begin
+  alter table public.tracks
+    add constraint tracks_fixe_needs_amount
+    check (support_mode <> 'fixe' or support_amount >= 100);
+exception
+  when duplicate_object then null;
+end $$;
+
+-- ------------------------------------------------------- stockage images
+
+-- Pochettes et photos de profil. Bucket public : ces images sont faites
+-- pour être partagées, et un lien signé casserait les aperçus sur les
+-- réseaux sociaux — là où le lien de l'artiste circule.
+insert into storage.buckets (id, name, public)
+values ('covers', 'covers', true)
+on conflict (id) do nothing;

@@ -1,5 +1,6 @@
 import "server-only";
 import { supabase as client } from "./db";
+import { COVERS_BUCKET } from "./storage";
 import type { Artist, Clip, Support, Track } from "./types";
 import type { PaymentMethod } from "./config";
 
@@ -14,20 +15,34 @@ import type { PaymentMethod } from "./config";
 
 /* ------------------------------------------------------------- conversions */
 
+/**
+ * La base ne stocke que la clé de l'objet ; l'URL publique se compose ici.
+ * Le jour où les images passent sur un autre CDN, seule cette fonction bouge.
+ */
+function imageUrl(key: string | null | undefined): string | undefined {
+  if (!key) return undefined;
+  const base = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!base) return undefined;
+  return `${base.replace(/\/$/, "")}/storage/v1/object/public/${COVERS_BUCKET}/${key}`;
+}
+
 type ArtistRow = {
   id: string;
   slug: string;
   name: string;
   city: string;
   bio: string;
+  label: string | null;
   gradient_from: string;
   gradient_to: string;
+  avatar_key: string | null;
+  cover_key: string | null;
   verified: boolean;
   monthly_listeners: number;
 };
 
 const ARTIST_COLS =
-  "id, slug, name, city, bio, gradient_from, gradient_to, verified, monthly_listeners";
+  "id, slug, name, city, bio, label, gradient_from, gradient_to, avatar_key, cover_key, verified, monthly_listeners";
 
 function toArtist(r: ArtistRow): Artist {
   return {
@@ -36,7 +51,10 @@ function toArtist(r: ArtistRow): Artist {
     name: r.name,
     city: r.city,
     bio: r.bio,
+    label: r.label ?? undefined,
     gradient: [r.gradient_from, r.gradient_to],
+    avatarUrl: imageUrl(r.avatar_key),
+    coverUrl: imageUrl(r.cover_key),
     verified: r.verified,
     monthlyListeners: r.monthly_listeners,
   };
@@ -50,12 +68,16 @@ type TrackRow = {
   plays: number;
   released_at: string;
   audio_key: string | null;
+  cover_key: string | null;
+  label: string | null;
   locked: boolean;
+  support_mode: string;
+  support_amount: number | null;
   featuring: string | null;
 };
 
 const TRACK_COLS =
-  "id, artist_id, title, duration, plays, released_at, audio_key, locked, featuring";
+  "id, artist_id, title, duration, plays, released_at, audio_key, cover_key, label, locked, support_mode, support_amount, featuring";
 
 /** La base ne stocke que la clé ; l'URL publique se compose ici. */
 function audioUrl(key: string | null): string | undefined {
@@ -74,7 +96,11 @@ function toTrack(r: TrackRow): Track {
     plays: r.plays,
     releasedAt: String(r.released_at).slice(0, 10),
     audioUrl: audioUrl(r.audio_key),
+    coverUrl: imageUrl(r.cover_key),
+    label: r.label ?? undefined,
     locked: r.locked,
+    supportMode: r.support_mode === "fixe" ? "fixe" : "libre",
+    supportAmount: r.support_amount ?? undefined,
     featuring: r.featuring ?? undefined,
   };
 }

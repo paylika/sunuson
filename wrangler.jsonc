@@ -29,12 +29,14 @@
     // "NEXT_PUBLIC_AUDIO_BASE_URL": "..."
   },
 
-  // Les fichiers audio, le jour où l'egress Supabase serre.
-  // Egress gratuit : c'est le seul poste qui explose sur un produit d'écoute.
-  "r2_buckets": [
-    {
-      "binding": "AUDIO",
-      "bucket_name": "sunuson-audio"
-    }
-  ]
+  // Pas de binding R2 pour l'instant : les fichiers vivent dans Supabase
+  // Storage. Déclarer un bucket R2 sans avoir activé R2 sur le compte fait
+  // échouer le déploiement avec « Please enable R2 » [code: 10042].
+  //
+  // Le jour où l'egress Supabase serre (~5 Go/mois, soit ~1 200 écoutes),
+  // activer R2 dans le tableau de bord, créer le bucket, puis rétablir :
+  //
+  //   "r2_buckets": [{ "binding": "AUDIO", "bucket_name": "sunuson-audio" }]
+  //
+  // Côté code, seul AUDIO_BASE_URL change : audio_key reste identique.
 }

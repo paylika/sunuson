@@ -1,9 +1,9 @@
 import type { PaymentMethod } from "./config";
 
 /**
- * Ces types sont le miroir exact des tables Supabase (voir supabase/schema.sql).
- * Tant qu'on est en démo, ils sont alimentés par src/lib/data.ts ; le jour du
- * branchement, seules les fonctions d'accès changent, pas les composants.
+ * Ces types sont le miroir des tables Supabase (voir supabase/schema.sql).
+ * Les composants ne connaissent qu'eux : ils ignorent d'où viennent les
+ * données, ce qui rend un changement de base indolore.
  */
 
 export type Artist = {
@@ -13,24 +13,44 @@ export type Artist = {
   name: string;
   city: string;
   bio: string;
-  /** Deux couleurs qui composent la pochette dégradée, faute de photo. */
+  /** Label ou structure. Vide si l'artiste est indépendant. */
+  label?: string;
+  /** Deux couleurs composant le dégradé de repli, faute d'image. */
   gradient: [string, string];
+  /** URL publique de la photo de profil. Absente -> initiales sur dégradé. */
+  avatarUrl?: string;
+  /** URL publique de la bannière. Absente -> dégradé. */
+  coverUrl?: string;
   verified: boolean;
   monthlyListeners: number;
 };
+
+/**
+ * Comment le fan paie un morceau donné.
+ *   'libre' : il choisit son montant
+ *   'fixe'  : l'artiste impose un prix — c'est ce qui transforme un inédit
+ *             en vente plutôt qu'en don
+ */
+export type SupportMode = "libre" | "fixe";
 
 export type Track = {
   id: string;
   artistId: string;
   title: string;
-  /** Durée en secondes. */
+  /** Durée en secondes. 0 tant qu'aucun fichier n'est déposé. */
   duration: number;
   plays: number;
   releasedAt: string;
-  /** URL du fichier audio. Vide en démo : le lecteur simule la lecture. */
+  /** URL du fichier audio. Absente : le lecteur simule la lecture. */
   audioUrl?: string;
+  /** URL publique de la pochette. */
+  coverUrl?: string;
+  label?: string;
   /** Un morceau verrouillé ne s'ouvre qu'après un soutien. */
   locked: boolean;
+  supportMode: SupportMode;
+  /** Prix imposé, uniquement quand supportMode vaut 'fixe'. */
+  supportAmount?: number;
   featuring?: string;
 };
 
