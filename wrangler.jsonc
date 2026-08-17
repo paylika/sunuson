@@ -16,18 +16,20 @@
 
   "observability": { "enabled": true },
 
-  // La base est chez Supabase, pas ici : le client parle en HTTP, ce qui
-  // fonctionne nativement sur Workers. Pas de binding D1.
+  // Variables NON secretes, ecrites ici volontairement.
   //
-  // Avant de déployer, pousser les variables côté Cloudflare :
-  //   npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
-  // et déclarer les NEXT_PUBLIC_* dans "vars" ci-dessous — elles sont
-  // publiques par nature, elles finissent dans le bundle du navigateur.
+  // wrangler REMPLACE les variables du tableau de bord par celles-ci a chaque
+  // deploiement : un bloc vide les effacait, et le Worker tournait sans savoir
+  // ou etait la base. Les declarer dans le code les rend deterministes.
+  //
+  // La cle anon est concue pour etre publique — elle part dans le navigateur
+  // sur toute application Supabase, et c'est la RLS qui protege les donnees.
+  // Les vrais secrets (service_role, webhook) restent des Secrets Cloudflare :
+  // wrangler n'y touche pas.
   "vars": {
-    // "NEXT_PUBLIC_SUPABASE_URL": "https://xxxx.supabase.co",
-    // "NEXT_PUBLIC_SUPABASE_ANON_KEY": "...",
-    // "NEXT_PUBLIC_AUDIO_BASE_URL": "..."
-  },
+    "SUPABASE_URL": "https://zzlloccetjzfmrsffcqh.supabase.co",
+    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp6bGxvY2NldGp6Zm1yc2ZmY3FoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5NTg0OTEsImV4cCI6MjEwMjUzNDQ5MX0.V60WoD8wvnv_qodqhD4rcFkpcgD5tbufmPmWRuL2jKY"
+  }
 
   // Pas de binding R2 pour l'instant : les fichiers vivent dans Supabase
   // Storage. Déclarer un bucket R2 sans avoir activé R2 sur le compte fait
