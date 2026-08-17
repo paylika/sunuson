@@ -10,9 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { artists, seedSupports, tracks as allTracks } from "@/lib/data";
-import type { Artist, Support, Track } from "@/lib/types";
-import type { PaymentMethod } from "@/lib/config";
+import type { Artist, Track } from "@/lib/types";
 
 /* ============================================================== lecteur */
 
@@ -22,7 +20,7 @@ type PlayerState = {
   playing: boolean;
   /** Position de lecture en secondes. */
   position: number;
-  toggle: (track: Track) => void;
+  toggle: (track: Track, artist: Artist) => void;
   pause: () => void;
   resume: () => void;
   seek: (seconds: number) => void;
@@ -32,25 +30,24 @@ type PlayerState = {
 const PlayerCtx = createContext<PlayerState | null>(null);
 
 function PlayerProvider({ children }: { children: ReactNode }) {
-  const [track, setTrack] = useState<Track | null>(null);
+  const [current, setCurrent] = useState<{
+    track: Track;
+    artist: Artist;
+  } | null>(null);
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const artist = useMemo(
-    () => (track ? (artists.find((a) => a.id === track.artistId) ?? null) : null),
-    [track],
-  );
+  const track = current?.track ?? null;
 
   /**
    * Deux modes : si le morceau a un fichier, on pilote un <audio> réel ;
    * sinon on simule la progression pour que la démo reste crédible sans
-   * héberger de son. Le jour où les URLs Supabase arrivent, la branche
-   * "réel" prend le relais toute seule.
+   * héberger de son. Dès que les URLs arrivent, la branche « réel » prend le
+   * relais toute seule.
    */
   useEffect(() => {
-    if (!playing || !track) return;
-    if (track.audioUrl) return;
+    if (!playing || !track || track.audioUrl) return;
 
     const id = window.setInterval(() => {
       setPosition((p) => {
@@ -72,16 +69,16 @@ function PlayerProvider({ children }: { children: ReactNode }) {
   }, [playing, track]);
 
   const toggle = useCallback(
-    (next: Track) => {
-      if (track?.id === next.id) {
+    (next: Track, artist: Artist) => {
+      if (current?.track.id === next.id) {
         setPlaying((p) => !p);
         return;
       }
-      setTrack(next);
+      setCurrent({ track: next, artist });
       setPosition(0);
       setPlaying(true);
     },
-    [track],
+    [current],
   );
 
   const seek = useCallback((seconds: number) => {
@@ -93,7 +90,7 @@ function PlayerProvider({ children }: { children: ReactNode }) {
   const value = useMemo<PlayerState>(
     () => ({
       track,
-      artist,
+      artist: current?.artist ?? null,
       playing,
       position,
       toggle,
@@ -102,11 +99,11 @@ function PlayerProvider({ children }: { children: ReactNode }) {
       resume: () => setPlaying(true),
       stop: () => {
         setPlaying(false);
-        setTrack(null);
+        setCurrent(null);
         setPosition(0);
       },
     }),
-    [track, artist, playing, position, toggle, seek],
+    [track, current, playing, position, toggle, seek],
   );
 
   return (
@@ -132,77 +129,43 @@ export function usePlayer() {
   return ctx;
 }
 
-/* ============================================================= soutiens */
+/* ========================================================= déverrouillage */
 
-type NewSupport = {
-  artistId: string;
-  trackId?: string;
-  supporterName: string;
-  amount: number;
-  message?: string;
-  method: PaymentMethod;
-};
-
-type SupportState = {
-  supports: Support[];
-  add: (s: NewSupport) => void;
-  forArtist: (artistId: string) => Support[];
-  totalForArtist: (artistId: string) => number;
-  /** Morceaux déverrouillés par un soutien pendant la session. */
-  unlocked: Set<string>;
+/**
+ * Les soutiens vivent en base : ils reviennent du serveur à chaque rendu.
+ * Ce qui reste côté client, c'est uniquement la mémoire des morceaux
+ * débloqués pendant la session — tant qu'il n'y a pas de comptes, on ne peut
+ * pas rattacher un déblocage à quelqu'un.
+ */
+type UnlockState = {
   isUnlocked: (trackId: string) => boolean;
+  unlock: (trackIds: string | string[]) => void;
 };
 
-const SupportCtx = createContext<SupportState | null>(null);
+const UnlockCtx = createContext<UnlockState | null>(null);
 
-function SupportProvider({ children }: { children: ReactNode }) {
-  const [supports, setSupports] = useState<Support[]>(seedSupports);
+function UnlockProvider({ children }: { children: ReactNode }) {
   const [unlocked, setUnlocked] = useState<Set<string>>(new Set());
 
-  const add = useCallback((s: NewSupport) => {
-    const entry: Support = {
-      ...s,
-      id: `s_${Math.round(performance.now() * 1000)}`,
-      supporterName: s.supporterName.trim() || "Anonyme",
-      createdAt: new Date().toISOString(),
-    };
-    setSupports((prev) => [entry, ...prev]);
-
-    // Un soutien déverrouille le morceau visé, et sinon tous les inédits de
-    // l'artiste : c'est la contrepartie qui transforme le geste en achat.
+  const unlock = useCallback((ids: string | string[]) => {
     setUnlocked((prev) => {
       const next = new Set(prev);
-      if (s.trackId) next.add(s.trackId);
-      else
-        allTracks
-          .filter((t) => t.artistId === s.artistId && t.locked)
-          .forEach((t) => next.add(t.id));
+      for (const id of Array.isArray(ids) ? ids : [ids]) next.add(id);
       return next;
     });
   }, []);
 
-  const value = useMemo<SupportState>(
-    () => ({
-      supports,
-      add,
-      unlocked,
-      isUnlocked: (trackId) => unlocked.has(trackId),
-      forArtist: (artistId) =>
-        supports.filter((s) => s.artistId === artistId),
-      totalForArtist: (artistId) =>
-        supports
-          .filter((s) => s.artistId === artistId)
-          .reduce((sum, s) => sum + s.amount, 0),
-    }),
-    [supports, add, unlocked],
+  const value = useMemo<UnlockState>(
+    () => ({ unlock, isUnlocked: (id) => unlocked.has(id) }),
+    [unlock, unlocked],
   );
 
-  return <SupportCtx.Provider value={value}>{children}</SupportCtx.Provider>;
+  return <UnlockCtx.Provider value={value}>{children}</UnlockCtx.Provider>;
 }
 
-export function useSupports() {
-  const ctx = useContext(SupportCtx);
-  if (!ctx) throw new Error("useSupports doit être utilisé dans <Providers>");
+export function useUnlock() {
+  const ctx = useContext(UnlockCtx);
+  if (!ctx) throw new Error("useUnlock doit être utilisé dans <Providers>");
   return ctx;
 }
 
@@ -210,8 +173,8 @@ export function useSupports() {
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <SupportProvider>
+    <UnlockProvider>
       <PlayerProvider>{children}</PlayerProvider>
-    </SupportProvider>
+    </UnlockProvider>
   );
 }

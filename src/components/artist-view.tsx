@@ -4,8 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { APP_DOMAIN } from "@/lib/config";
 import { compact, fcfa } from "@/lib/format";
-import type { Artist, Clip, Track } from "@/lib/types";
-import { useSupports } from "./providers";
+import type { Artist, Clip, Support, Track } from "@/lib/types";
 import { SupportSheet } from "./support-sheet";
 import { SupporterWall } from "./supporter-wall";
 import { TrackRow } from "./player-ui";
@@ -26,19 +25,20 @@ export function ArtistView({
   artist,
   tracks,
   clips,
+  supports,
 }: {
   artist: Artist;
   tracks: Track[];
   clips: Clip[];
+  /** Soutiens confirmés, chargés côté serveur. */
+  supports: Support[];
 }) {
-  const { forArtist } = useSupports();
   const [tab, setTab] = useState<Tab>("sons");
   const [sheet, setSheet] = useState<{ open: boolean; track?: Track }>({
     open: false,
   });
   const [copied, setCopied] = useState(false);
 
-  const supports = forArtist(artist.id);
   const total = useMemo(
     () => supports.reduce((s, x) => s + x.amount, 0),
     [supports],

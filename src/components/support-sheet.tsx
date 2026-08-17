@@ -1,6 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { createSupport } from "@/lib/actions";
 import {
   COMMISSION_RATE,
   MAX_SUPPORT,
@@ -11,7 +13,7 @@ import {
 } from "@/lib/config";
 import { fcfa } from "@/lib/format";
 import type { Artist, Track } from "@/lib/types";
-import { useSupports } from "./providers";
+import { useUnlock } from "./providers";
 import { Avatar, Button, cx, Glass } from "./ui";
 import { Check, Close, Lock, Spark } from "./icons";
 
@@ -28,7 +30,9 @@ export function SupportSheet({
   open: boolean;
   onClose: () => void;
 }) {
-  const { add } = useSupports();
+  const { unlock } = useUnlock();
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<Step>("montant");
   const [amount, setAmount] = useState<number>(2000);
   const [custom, setCustom] = useState("");
@@ -45,6 +49,7 @@ export function SupportSheet({
     setCustom("");
     setMessage("");
     setPending(false);
+    setError(null);
   }, [open]);
 
   useEffect(() => {
@@ -72,21 +77,32 @@ export function SupportSheet({
     setAmount(digits ? Number(digits) : 0);
   }
 
-  function confirm() {
+  async function confirm() {
     setPending(true);
-    // Simulation de l'aller-retour vers l'agrégateur mobile money.
-    window.setTimeout(() => {
-      add({
-        artistId: artist.id,
-        trackId: track?.id,
-        supporterName: name,
-        amount,
-        message: message.trim() || undefined,
-        method,
-      });
-      setPending(false);
-      setStep("fait");
-    }, 1100);
+    setError(null);
+
+    const result = await createSupport({
+      artistSlug: artist.slug,
+      artistId: artist.id,
+      trackId: track?.id,
+      supporterName: name,
+      amount,
+      message: message.trim() || undefined,
+      method,
+    });
+
+    setPending(false);
+
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+
+    if (track?.locked) unlock(track.id);
+    // Le soutien est en base : on redemande la page pour que le mur et les
+    // totaux reflètent la réalité plutôt qu'un état local.
+    router.refresh();
+    setStep("fait");
   }
 
   return (
@@ -137,6 +153,7 @@ export function SupportSheet({
               method={method}
               setMethod={setMethod}
               pending={pending}
+              error={error}
               onBack={() => setStep("montant")}
               onConfirm={confirm}
             />
@@ -302,6 +319,7 @@ function PaiementStep({
   method,
   setMethod,
   pending,
+  error,
   onBack,
   onConfirm,
 }: {
@@ -309,6 +327,7 @@ function PaiementStep({
   method: PaymentMethod;
   setMethod: (m: PaymentMethod) => void;
   pending: boolean;
+  error: string | null;
   onBack: () => void;
   onConfirm: () => void;
 }) {
@@ -368,6 +387,12 @@ function PaiementStep({
         Tu vas recevoir une demande de paiement sur ton téléphone. Valide-la
         pour confirmer ton soutien.
       </div>
+
+      {error && (
+        <div className="mt-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-[12.5px] leading-snug text-red-600">
+          {error}
+        </div>
+      )}
 
       <div className="mt-5 flex gap-2.5">
         <Button variant="glass" onClick={onBack} className="px-6">

@@ -18,6 +18,12 @@ export const MAX_SUPPORT = 1_000_000;
 /** Seuil de retrait minimum pour l'artiste, en FCFA. */
 export const MIN_PAYOUT = 5000;
 
+/**
+ * Tant qu'il n'y a pas d'authentification, le dashboard affiche toujours le
+ * même artiste. À remplacer par l'artiste de la session connectée.
+ */
+export const DEMO_ARTIST_SLUG = "ndiagaflow";
+
 export type PaymentMethod = "wave" | "orange_money";
 
 export const PAYMENT_METHODS: {

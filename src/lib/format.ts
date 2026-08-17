@@ -23,7 +23,7 @@ export function duration(seconds: number): string {
 }
 
 /** "il y a 3 j", "il y a 2 h" — court, pour le mur des soutiens. */
-export function timeAgo(iso: string, now = new Date("2026-08-15T12:00:00Z")) {
+export function timeAgo(iso: string, now = new Date()) {
   const diff = Math.max(0, now.getTime() - new Date(iso).getTime());
   const min = Math.floor(diff / 60000);
   if (min < 1) return "à l'instant";

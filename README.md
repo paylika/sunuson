@@ -140,13 +140,20 @@ ce soit.
 
 ## État actuel
 
-- `/a/[slug]` **lit la base** (artiste, sons, clips) en rendu dynamique.
-- Les autres écrans lisent encore `src/lib/data.ts`. Migration à finir.
-- Les soutiens vivent dans un store client (`providers.tsx`) : ce qui est
-  ajouté pendant la session disparaît au rechargement.
-- Le paiement est simulé, aucun appel à un agrégateur.
-- Le lecteur simule la lecture tant qu'un morceau n'a pas de fichier. Dès qu'un
-  `audioUrl` est présent, il pilote un vrai élément `<audio>`.
+**Les quatre écrans lisent la base.** Il n'y a plus aucune donnée en dur : le
+fichier `src/lib/data.ts` a disparu. Les soutiens et les morceaux déposés sont
+persistés et survivent au rechargement.
+
+Ce qui reste simulé :
+
+- **Le paiement.** Aucun agrégateur n'est branché. En développement,
+  `createSupport` confirme le soutien lui-même — un bloc explicitement borné à
+  `NODE_ENV !== "production"`. En production, seul le webhook peut confirmer.
+- **L'upload audio.** Le dépôt crée la fiche du morceau, pas le fichier :
+  `audio_key` reste vide et le lecteur simule la lecture. Dès qu'un `audioUrl`
+  est présent, il pilote un vrai élément `<audio>`.
+- **L'authentification.** Le dashboard affiche toujours l'artiste
+  `DEMO_ARTIST_SLUG` (`src/lib/config.ts`), faute de comptes.
 
 ## Paiement mobile money
 

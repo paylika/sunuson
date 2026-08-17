@@ -2,7 +2,7 @@
 
 import { compact, duration } from "@/lib/format";
 import type { Artist, Track } from "@/lib/types";
-import { usePlayer, useSupports } from "./providers";
+import { usePlayer, useUnlock } from "./providers";
 import { Cover, cx } from "./ui";
 import { Lock, Pause, Play, Spark } from "./icons";
 
@@ -20,7 +20,7 @@ export function TrackRow({
   onSupport: (track: Track) => void;
 }) {
   const { track: current, playing, toggle } = usePlayer();
-  const { isUnlocked } = useSupports();
+  const { isUnlocked } = useUnlock();
 
   const locked = track.locked && !isUnlocked(track.id);
   const isCurrent = current?.id === track.id;
@@ -34,7 +34,7 @@ export function TrackRow({
       )}
     >
       <button
-        onClick={() => (locked ? onSupport(track) : toggle(track))}
+        onClick={() => (locked ? onSupport(track) : toggle(track, artist))}
         className="relative shrink-0"
         aria-label={locked ? "Débloquer" : isPlaying ? "Pause" : "Lecture"}
       >
@@ -168,7 +168,7 @@ export function MiniPlayer({ bottom = 88 }: { bottom?: number }) {
           </span>
 
           <button
-            onClick={() => toggle(track)}
+            onClick={() => toggle(track, artist)}
             aria-label={playing ? "Pause" : "Lecture"}
             className="grid h-11 w-11 shrink-0 place-items-center rounded-full grad-brand text-white active:scale-90"
           >

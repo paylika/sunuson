@@ -4,6 +4,7 @@ import { APP_NAME } from "@/lib/config";
 import {
   getArtistBySlug,
   getClipsByArtist,
+  getSupportsByArtist,
   getTracksByArtist,
 } from "@/lib/queries";
 import { ArtistView } from "@/components/artist-view";
@@ -19,10 +20,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const artist = await getArtistBySlug(slug);
   if (!artist) return { title: APP_NAME };
-  return {
-    title: `${artist.name} — ${APP_NAME}`,
-    description: artist.bio,
-  };
+  return { title: `${artist.name} — ${APP_NAME}`, description: artist.bio };
 }
 
 export default async function ArtistPage({ params }: Props) {
@@ -30,14 +28,20 @@ export default async function ArtistPage({ params }: Props) {
   const artist = await getArtistBySlug(slug);
   if (!artist) notFound();
 
-  const [tracks, clips] = await Promise.all([
+  const [tracks, clips, supports] = await Promise.all([
     getTracksByArtist(artist.id),
     getClipsByArtist(artist.id),
+    getSupportsByArtist(artist.id),
   ]);
 
   return (
     <Shell>
-      <ArtistView artist={artist} tracks={tracks} clips={clips} />
+      <ArtistView
+        artist={artist}
+        tracks={tracks}
+        clips={clips}
+        supports={supports}
+      />
     </Shell>
   );
 }

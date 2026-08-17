@@ -149,6 +149,29 @@ export async function getTracksByArtist(artistId: string): Promise<Track[]> {
   return rows.map(toTrack);
 }
 
+/**
+ * Titres de tous les morceaux, groupés par artiste. Sert uniquement à la
+ * recherche : elle se fait côté client sur un index léger, sans aller-retour
+ * réseau à chaque frappe. À remplacer par une recherche plein texte en base
+ * le jour où le catalogue dépassera quelques centaines de titres.
+ */
+export async function getTrackTitles(): Promise<Map<string, string[]>> {
+  const rows = unwrap(
+    await supabase
+      .from("tracks")
+      .select("artist_id, title")
+      .returns<{ artist_id: string; title: string }[]>(),
+  );
+
+  const byArtist = new Map<string, string[]>();
+  for (const r of rows) {
+    const list = byArtist.get(r.artist_id);
+    if (list) list.push(r.title);
+    else byArtist.set(r.artist_id, [r.title]);
+  }
+  return byArtist;
+}
+
 /* ------------------------------------------------------------------- clips */
 
 type ClipRow = {
