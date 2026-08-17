@@ -299,6 +299,23 @@ export async function createTrack(formData: FormData): Promise<ActionResult> {
   return { ok: true };
 }
 
+/**
+ * Quelques morceaux au hasard, pour remplir une playlist vide pendant le
+ * développement. Bornée à `NODE_ENV !== "production"` : en ligne, une
+ * playlist vide doit le rester tant que le fan n'a rien enregistré.
+ */
+export async function sampleTrackIds(): Promise<string[]> {
+  if (process.env.NODE_ENV === "production") return [];
+
+  const { data } = await supabaseAdmin()
+    .from("tracks")
+    .select("id")
+    .order("plays", { ascending: false })
+    .limit(8);
+
+  return (data ?? []).map((r) => r.id as string);
+}
+
 /** Résout la playlist du fan, dont les identifiants vivent dans son navigateur. */
 export async function playlistTracks(ids: string[]) {
   if (!Array.isArray(ids) || ids.length === 0) return [];

@@ -195,6 +195,8 @@ type PlaylistState = {
   ids: string[];
   has: (trackId: string) => boolean;
   toggle: (trackId: string) => void;
+  /** Ajout groupé, sans doublon. Sert au remplissage de démonstration. */
+  addMany: (trackIds: string[]) => void;
   /** Faux tant que le localStorage n'a pas été lu, pour éviter un écart
       entre le rendu serveur et le premier rendu client. */
   ready: boolean;
@@ -233,9 +235,21 @@ function PlaylistProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const addMany = useCallback((trackIds: string[]) => {
+    setIds((prev) => {
+      const next = [...new Set([...trackIds, ...prev])];
+      try {
+        window.localStorage.setItem(PLAYLIST_KEY, JSON.stringify(next));
+      } catch {
+        /* stockage indisponible */
+      }
+      return next;
+    });
+  }, []);
+
   const value = useMemo<PlaylistState>(
-    () => ({ ids, has: (id) => ids.includes(id), toggle, ready }),
-    [ids, toggle, ready],
+    () => ({ ids, has: (id) => ids.includes(id), toggle, addMany, ready }),
+    [ids, toggle, addMany, ready],
   );
 
   return (

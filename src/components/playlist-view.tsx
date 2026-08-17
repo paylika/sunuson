@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { playlistTracks } from "@/lib/actions";
+import { playlistTracks, sampleTrackIds } from "@/lib/actions";
 import { compact, duration } from "@/lib/format";
 import type { Artist, Track } from "@/lib/types";
 import { usePlayer, usePlaylist, useUnlock } from "./providers";
@@ -14,7 +14,7 @@ import { Bookmark, ChevronRight, Lock, Pause, Play, Spark } from "./icons";
 type Entry = { track: Track; artist: Artist };
 
 export function PlaylistView() {
-  const { ids, ready } = usePlaylist();
+  const { ids, ready, addMany } = usePlaylist();
   const { track: current, playing, toggle } = usePlayer();
   const { isUnlocked } = useUnlock();
 
@@ -89,6 +89,17 @@ export function PlaylistView() {
             Découvrir des artistes
             <ChevronRight size={16} />
           </Link>
+
+          {/* Confort de développement : permet de voir l'écran rempli sans
+              avoir à enregistrer huit sons à la main. Invisible en ligne. */}
+          {process.env.NODE_ENV !== "production" && (
+            <button
+              onClick={() => sampleTrackIds().then(addMany)}
+              className="mt-4 block w-full text-[11.5px] font-medium text-fg/35 underline underline-offset-4"
+            >
+              Remplir avec des exemples (dev)
+            </button>
+          )}
         </Glass>
       ) : (
         <div className="space-y-0.5">
