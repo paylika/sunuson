@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createTrack, findArtists } from "@/lib/actions";
 import { MIN_SUPPORT } from "@/lib/config";
 import { fcfa, initials } from "@/lib/format";
-import { checkCoverDimensions, COVER_RULES } from "@/lib/storage";
+import { COVER_RULES, prepareCover, readAudioDuration } from "@/lib/storage";
 import type { Artist } from "@/lib/types";
 import { cx } from "./ui";
 import { Check, Close, Lock, Plus, Search, Spark, Upload } from "./icons";
@@ -38,6 +38,8 @@ export function TrackUploadSheet({
   const [title, setTitle] = useState("");
   const [label, setLabel] = useState(artist.label ?? "");
   const [audio, setAudio] = useState<File | null>(null);
+  const [audioInfo, setAudioInfo] = useState<string | null>(null);
+  const [duration, setDuration] = useState(0);
   const [cover, setCover] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [coverInfo, setCoverInfo] = useState<string | null>(null);
@@ -54,7 +56,10 @@ export function TrackUploadSheet({
 
   const guestShare = guests.reduce((s, g) => s + g.share, 0);
   const myShare = 100 - guestShare;
-  const ready = title.trim().length > 1 && rights && myShare >= 0 && !pending;
+  // Le fichier audio est exigé : une fiche sans son crée un morceau muet sur
+  // une page que les fans voient déjà.
+  const ready =
+    title.trim().length > 1 && !!audio && rights && myShare >= 0 && !pending;
 
   useEffect(() => {
     if (!open) return;
@@ -71,24 +76,29 @@ export function TrackUploadSheet({
 
   async function pickCover(file: File) {
     setError(null);
-    const check = await checkCoverDimensions(file);
+    setCoverInfo("Préparation…");
 
-    if (!check.ok) {
-      setError(check.error);
+    // On ne refuse plus une image parce qu'elle n'est pas carrée : on la
+    // recadre. Un débutant photographie sa pochette au téléphone, elle sort
+    // en 4:3, et lui demander de la retailler ailleurs le fait abandonner.
+    const pret = await prepareCover(file);
+
+    if (!pret.ok) {
+      setError(pret.error);
       setCover(null);
       setCoverPreview(null);
       setCoverInfo(null);
       return;
     }
 
-    setCover(file);
-    setCoverPreview(URL.createObjectURL(file));
+    setCover(pret.file);
+    setCoverPreview(URL.createObjectURL(pret.file));
     setCoverInfo(
-      `${check.width}×${check.height} · ${
-        (check.width ?? 0) < COVER_RULES.idealSize
-          ? `en dessous des ${COVER_RULES.idealSize} px idéaux`
-          : "conforme"
-      }`,
+      pret.faible
+        ? `${pret.note} · trop petite pour une distribution ailleurs`
+        : pret.taille < COVER_RULES.idealSize
+          ? `${pret.note} · parfait ici`
+          : pret.note,
     );
   }
 
@@ -115,6 +125,8 @@ export function TrackUploadSheet({
         ),
       );
       if (cover) fd.set("cover", cover);
+      if (audio) fd.set("audio", audio);
+      fd.set("duration", String(duration));
 
       const res = await createTrack(fd);
       if (!res.ok) {
@@ -172,9 +184,9 @@ export function TrackUploadSheet({
           </button>
 
           <p className="mx-auto mt-2.5 max-w-[300px] text-center text-[11px] leading-relaxed text-fg/40">
-            Carrée, {COVER_RULES.minSize} px minimum, {COVER_RULES.idealSize} px
-            idéal. Ni logo de réseau social ni adresse web : les plateformes
-            refusent.
+            N&apos;importe quelle image : on la recadre en carré pour toi. Évite
+            juste les logos de réseaux sociaux et les adresses web, les
+            plateformes les refusent.
           </p>
           {coverInfo && (
             <p className="mt-1.5 text-center text-[11.5px] font-semibold text-brand-300">
@@ -195,7 +207,7 @@ export function TrackUploadSheet({
                 {audio ? audio.name : "Choisir le fichier audio"}
               </span>
               <span className="block text-[11px] text-fg/40">
-                MP3 ou WAV · encodé en 128 kbps à l&apos;envoi
+                {audioInfo ?? "MP3, M4A, WAV — obligatoire"}
               </span>
             </span>
           </button>
@@ -346,8 +358,8 @@ export function TrackUploadSheet({
           </button>
 
           <p className="mt-5 text-center text-[11px] leading-relaxed text-fg/35">
-            La pochette est envoyée, pas encore le fichier audio : le lecteur
-            simulera la lecture en attendant.
+            Encode en 128 kbps si tu peux : c&apos;est inaudible sur un
+            téléphone et ça divise par deux la data de tes fans.
           </p>
         </div>
 
@@ -388,13 +400,27 @@ export function TrackUploadSheet({
         onChange={(e) => {
           const f = e.target.files?.[0] ?? null;
           setAudio(f);
-          if (f && !title) setTitle(f.name.replace(/\.[^.]+$/, ""));
+          setDuration(0);
+          setAudioInfo(null);
+          if (!f) return;
+
+          if (!title) setTitle(f.name.replace(/\.[^.]+$/, ""));
+
+          void readAudioDuration(f).then((d) => {
+            setDuration(d);
+            const mo = (f.size / 1024 / 1024).toFixed(1);
+            setAudioInfo(
+              d > 0
+                ? `${Math.floor(d / 60)} min ${String(d % 60).padStart(2, "0")} · ${mo} Mo`
+                : `${mo} Mo`,
+            );
+          });
         }}
       />
       <input
         ref={coverRef}
         type="file"
-        accept={COVER_RULES.types.join(",")}
+        accept="image/*"
         hidden
         onChange={(e) => {
           const f = e.target.files?.[0];

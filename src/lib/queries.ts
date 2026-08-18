@@ -1,6 +1,6 @@
 import "server-only";
 import { supabase as client } from "./db";
-import { COVERS_BUCKET } from "./storage";
+import { AUDIO_BUCKET, COVERS_BUCKET } from "./storage";
 import type { Artist, Clip, Collaborator, Support, Track } from "./types";
 import type { PaymentMethod } from "./config";
 
@@ -78,12 +78,23 @@ type TrackRow = {
 const TRACK_COLS =
   "id, artist_id, title, duration, plays, released_at, audio_key, cover_key, label, locked, support_mode, support_amount";
 
-/** La base ne stocke que la clé ; l'URL publique se compose ici. */
+/**
+ * La base ne stocke que la clé ; l'URL publique se compose ici.
+ *
+ * AUDIO_BASE_URL n'est renseignée que le jour où les fichiers passeront sur
+ * Cloudflare R2, pour l'egress gratuit. Tant qu'elle est vide on sert depuis
+ * Supabase Storage — auparavant on ne servait rien du tout, et tout morceau
+ * déposé restait muet.
+ */
 function audioUrl(key: string | null): string | undefined {
-  const base =
-    process.env.AUDIO_BASE_URL || process.env.NEXT_PUBLIC_AUDIO_BASE_URL;
-  if (!key || !base) return undefined;
-  return `${base.replace(/\/$/, "")}/${key}`;
+  if (!key) return undefined;
+
+  const cdn = process.env.AUDIO_BASE_URL || process.env.NEXT_PUBLIC_AUDIO_BASE_URL;
+  if (cdn) return `${cdn.replace(/\/$/, "")}/${key}`;
+
+  const base = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!base) return undefined;
+  return `${base.replace(/\/$/, "")}/storage/v1/object/public/${AUDIO_BUCKET}/${key}`;
 }
 
 function toTrack(r: TrackRow): Track {

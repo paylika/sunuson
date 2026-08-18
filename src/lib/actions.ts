@@ -11,6 +11,9 @@ import {
 import { MAX_SUPPORT, MIN_SUPPORT, type PaymentMethod } from "./config";
 import { communeValide } from "./senegal";
 import {
+  AUDIO_BUCKET,
+  AUDIO_RULES,
+  audioExtensionFor,
   checkImageFile,
   COVER_RULES,
   COVERS_BUCKET,
@@ -149,6 +152,41 @@ async function putImage(
   return { ok: true, key };
 }
 
+/**
+ * Dépose le fichier audio et renvoie sa clé.
+ *
+ * Bucket distinct des images : les deux n'ont ni le même poids, ni le même
+ * profil de trafic, et le jour où l'audio partira sur Cloudflare R2 pour
+ * l'egress gratuit, il partira seul.
+ */
+async function putAudio(
+  file: File,
+  artistId: string,
+): Promise<{ ok: true; key: string } | { ok: false; error: string }> {
+  // Le type MIME peut être vide selon le navigateur et le système de
+  // fichiers : on ne refuse alors pas, on laisse passer et on encode en mp3.
+  if (file.type && !AUDIO_RULES.types.includes(file.type as never)) {
+    return { ok: false, error: "Format audio non reconnu. Essaie un MP3." };
+  }
+  if (file.size > AUDIO_RULES.maxBytes) {
+    return {
+      ok: false,
+      error: `Fichier trop lourd (${Math.round(file.size / 1024 / 1024)} Mo). Maximum ${Math.round(AUDIO_RULES.maxBytes / 1024 / 1024)} Mo.`,
+    };
+  }
+
+  const key = `${artistId}/${crypto.randomUUID()}.${audioExtensionFor(file.type)}`;
+  const { error } = await supabaseAdmin()
+    .storage.from(AUDIO_BUCKET)
+    .upload(key, await file.arrayBuffer(), {
+      contentType: file.type || "audio/mpeg",
+      upsert: false,
+    });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, key };
+}
+
 /** Texte du profil : bio, ville, label. */
 export async function updateArtistProfile(input: {
   artistId: string;
@@ -209,8 +247,7 @@ export async function updateArtistImage(
 /* ================================================================== sons */
 
 /**
- * Crée la fiche d'un morceau, avec sa pochette. Le fichier audio n'est pas
- * encore envoyé : `audio_key` reste vide et le lecteur simule la lecture.
+ * Crée un morceau : sa fiche, sa pochette et son fichier audio.
  */
 export async function createTrack(formData: FormData): Promise<ActionResult> {
   const artistId = String(formData.get("artistId") ?? "");
@@ -284,6 +321,24 @@ export async function createTrack(formData: FormData): Promise<ActionResult> {
     coverKey = put.key;
   }
 
+  // Sans fichier audio, la fiche existe mais le morceau reste muet : autant
+  // le dire ici plutôt que de laisser l'artiste le découvrir en cliquant sur
+  // lecture depuis la page que ses fans voient déjà.
+  const audio = formData.get("audio");
+  if (!(audio instanceof File) || audio.size === 0) {
+    return { ok: false, error: "Choisis le fichier audio du morceau." };
+  }
+
+  const son = await putAudio(audio, artistId);
+  if (!son.ok) return son;
+
+  // Durée mesurée par le navigateur. 0 si son lecteur n'a pas su la lire : le
+  // morceau reste écoutable, seule la durée affichée manque.
+  const duration = Math.max(
+    0,
+    Math.min(3600, Math.round(Number(formData.get("duration") ?? 0)) || 0),
+  );
+
   const admin = supabaseAdmin();
 
   // Le nouveau morceau passe en tête de liste.
@@ -302,9 +357,10 @@ export async function createTrack(formData: FormData): Promise<ActionResult> {
       title,
       label: label || null,
       cover_key: coverKey,
+      audio_key: son.key,
       locked,
       rights_ok: true,
-      duration: 0,
+      duration,
       support_mode: supportMode,
       support_amount: supportMode === "fixe" ? supportAmount : null,
       position: (last?.position ?? 0) + 1,
@@ -402,6 +458,58 @@ export async function requestPayout(
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+/**
+ * Supprime un morceau, sa pochette et son fichier.
+ *
+ * Il n'existait aucun moyen de retirer un son : une erreur restait publique
+ * pour toujours sur la page de l'artiste. Les fichiers partent avec la fiche,
+ * sinon le stockage se remplit de sons que plus rien ne référence.
+ */
+export async function deleteTrack(input: {
+  trackId: string;
+  artistSlug: string;
+}): Promise<ActionResult> {
+  const user = await currentUser();
+  if (!user) return { ok: false, error: "Connecte-toi d'abord." };
+
+  const admin = supabaseAdmin();
+
+  // On remonte à l'artiste pour vérifier que le morceau appartient bien au
+  // compte connecté. Sans ce contrôle, un identifiant deviné suffirait à
+  // effacer le son de quelqu'un d'autre.
+  const { data: track } = await admin
+    .from("tracks")
+    .select("id, audio_key, cover_key, artists!inner(user_id, slug)")
+    .eq("id", input.trackId)
+    .maybeSingle<{
+      id: string;
+      audio_key: string | null;
+      cover_key: string | null;
+      artists: { user_id: string | null; slug: string } | null;
+    }>();
+
+  if (!track) return { ok: false, error: "Morceau introuvable." };
+  if (track.artists?.user_id !== user.id) {
+    return { ok: false, error: "Ce morceau n'est pas le tien." };
+  }
+
+  const { error } = await admin.from("tracks").delete().eq("id", track.id);
+  if (error) return { ok: false, error: error.message };
+
+  // Les fichiers ensuite : si leur effacement échoue, la fiche est déjà
+  // partie et le morceau a bien disparu des pages. L'inverse laisserait un
+  // son visible mais sans fichier.
+  if (track.audio_key) {
+    await admin.storage.from(AUDIO_BUCKET).remove([track.audio_key]);
+  }
+  if (track.cover_key) {
+    await admin.storage.from(COVERS_BUCKET).remove([track.cover_key]);
+  }
+
+  revalidateAll(track.artists?.slug ?? input.artistSlug);
   return { ok: true };
 }
 

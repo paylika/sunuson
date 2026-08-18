@@ -4,21 +4,91 @@
  */
 
 export const COVERS_BUCKET = "covers";
+export const AUDIO_BUCKET = "audio";
 
 /**
- * Normes des plateformes de streaming pour une pochette. Elles sont
- * volontairement strictes : une pochette refusée par Spotify ou Apple, c'est
- * une sortie repoussée d'une semaine.
+ * Règles du fichier audio.
+ *
+ * Large sur les formats : un téléphone Android donne du MP3, un iPhone du M4A,
+ * et un débutant n'a aucune raison de savoir convertir. Ferme sur le poids, en
+ * revanche — c'est le fan qui paiera la data à l'écoute, et 4 Mo de plus par
+ * son, ce sont des écoutes en moins au Sénégal.
+ */
+export const AUDIO_RULES = {
+  maxBytes: 25 * 1024 * 1024,
+  types: [
+    "audio/mpeg",
+    "audio/mp3",
+    "audio/mp4",
+    "audio/x-m4a",
+    "audio/aac",
+    "audio/wav",
+    "audio/x-wav",
+    "audio/ogg",
+    "audio/opus",
+    "audio/webm",
+    "audio/flac",
+  ],
+} as const;
+
+/** Extension déduite du type MIME du fichier audio. */
+export function audioExtensionFor(mime: string): string {
+  if (mime.includes("mp4") || mime.includes("m4a")) return "m4a";
+  if (mime.includes("wav")) return "wav";
+  if (mime.includes("ogg") || mime.includes("opus")) return "ogg";
+  if (mime.includes("webm")) return "webm";
+  if (mime.includes("flac")) return "flac";
+  if (mime.includes("aac")) return "aac";
+  return "mp3";
+}
+
+/**
+ * Durée du morceau, lue dans le navigateur. Le serveur ne décode pas l'audio :
+ * il faudrait une bibliothèque entière pour une information que le lecteur du
+ * téléphone donne gratuitement en une seconde.
+ */
+export function readAudioDuration(file: File): Promise<number> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const el = document.createElement("audio");
+
+    const fini = (v: number) => {
+      URL.revokeObjectURL(url);
+      resolve(v);
+    };
+
+    el.preload = "metadata";
+    el.onloadedmetadata = () =>
+      fini(Number.isFinite(el.duration) ? Math.round(el.duration) : 0);
+    // Durée inconnue : 0, et la fiche se crée quand même. Un morceau sans
+    // durée affichée reste écoutable, c'est ce qui compte.
+    el.onerror = () => fini(0);
+    el.src = url;
+  });
+}
+
+/**
+ * Repères de pochette — des repères, plus des barrières.
+ *
+ * La version précédente refusait toute image non carrée et tout ce qui
+ * descendait sous 1400 px. C'était juste pour un artiste distribué, et absurde
+ * pour un débutant : il photographie sa pochette au téléphone, elle sort en
+ * 4:3, et l'application lui répond non. Il abandonne, et on perd exactement
+ * celui qu'on voulait servir.
+ *
+ * On recadre donc nous-mêmes, et on ne prévient que si la définition est trop
+ * basse pour une distribution ailleurs — une information, pas un refus.
  */
 export const COVER_RULES = {
-  /** Les distributeurs refusent en dessous. */
+  /** En dessous, les distributeurs refusent. On le dit sans bloquer. */
   minSize: 1400,
   /** Ce que demandent Apple Music et les kits presse. */
   idealSize: 3000,
-  maxBytes: 10 * 1024 * 1024,
-  types: ["image/jpeg", "image/png"],
-  /** Tolérance sur le carré : 1 % d'écart passe, au-delà c'est un rectangle. */
-  squareTolerance: 0.01,
+  /** Au-delà, on rééchantillonne : personne n'a besoin de 6000 px. */
+  maxSize: 3000,
+  maxBytes: 15 * 1024 * 1024,
+  /** Tout ce qu'un navigateur sait décoder : on réencode en JPEG ensuite. */
+  types: ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"],
 } as const;
 
 export const PHOTO_RULES = {
@@ -51,50 +121,79 @@ export function checkImageFile(
   return { ok: true };
 }
 
+export type CoverPrete = {
+  ok: true;
+  /** L'image recadrée en carré, prête à envoyer. */
+  file: File;
+  taille: number;
+  /** Ce qui a été fait à l'image, à montrer à l'artiste. */
+  note: string;
+  /** Trop petite pour une distribution ailleurs. Informe, ne bloque pas. */
+  faible: boolean;
+};
+
 /**
- * Vérifie les dimensions. Ne fonctionne que dans le navigateur : c'est là
- * qu'on veut le retour, avant de faire monter 10 Mo pour rien.
+ * Recadre une image en carré, au centre, sans jamais la refuser.
+ *
+ * Ne fonctionne que dans le navigateur — c'est voulu : le travail se fait sur
+ * le téléphone de l'artiste, et ce qui part sur le réseau est déjà le carré
+ * final. Une photo de 8 Mo en 4:3 arrive en moins de 500 Ko.
+ *
+ * Le centre plutôt qu'un cadrage intelligent : sur une pochette, le sujet est
+ * au milieu dans l'immense majorité des cas, et un recadrage automatique qui
+ * se trompe est bien pire qu'un recadrage prévisible.
  */
-export function checkCoverDimensions(
+export async function prepareCover(
   file: File,
-): Promise<ImageCheck & { width?: number; height?: number }> {
-  return new Promise((resolve) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
+): Promise<CoverPrete | { ok: false; error: string }> {
+  try {
+    const source = await createImageBitmap(file);
+    const { width, height } = source;
 
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const { width, height } = img;
-      const ratio = width / height;
+    // Le côté du carré : le plus petit côté de la source, plafonné.
+    const cote = Math.min(width, height, COVER_RULES.maxSize);
+    const decoupe = Math.min(width, height);
 
-      if (Math.abs(ratio - 1) > COVER_RULES.squareTolerance) {
-        resolve({
-          ok: false,
-          error: `La pochette doit être carrée. La tienne fait ${width}×${height}.`,
-          width,
-          height,
-        });
-        return;
-      }
-      if (width < COVER_RULES.minSize) {
-        resolve({
-          ok: false,
-          error: `Trop petite : ${width}×${height}. Minimum ${COVER_RULES.minSize}×${COVER_RULES.minSize}, idéal ${COVER_RULES.idealSize}×${COVER_RULES.idealSize}.`,
-          width,
-          height,
-        });
-        return;
-      }
-      resolve({ ok: true, width, height });
+    const canvas = document.createElement("canvas");
+    canvas.width = cote;
+    canvas.height = cote;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return { ok: false, error: "Recadrage impossible sur cet appareil." };
+
+    ctx.drawImage(
+      source,
+      (width - decoupe) / 2,
+      (height - decoupe) / 2,
+      decoupe,
+      decoupe,
+      0,
+      0,
+      cote,
+      cote,
+    );
+    source.close();
+
+    const blob = await new Promise<Blob | null>((r) =>
+      canvas.toBlob(r, "image/jpeg", 0.9),
+    );
+    if (!blob) return { ok: false, error: "Recadrage impossible sur cet appareil." };
+
+    const carre = Math.abs(width / height - 1) < 0.01;
+    const faible = cote < COVER_RULES.minSize;
+
+    return {
+      ok: true,
+      file: new File([blob], "pochette.jpg", { type: "image/jpeg" }),
+      taille: cote,
+      note: carre
+        ? `${cote}×${cote}`
+        : `Recadrée au centre : ${width}×${height} → ${cote}×${cote}`,
+      faible,
     };
-
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve({ ok: false, error: "Image illisible." });
-    };
-
-    img.src = url;
-  });
+  } catch {
+    return { ok: false, error: "Image illisible. Essaie un autre fichier." };
+  }
 }
 
 /** Extension déduite du type MIME, jamais du nom de fichier (peu fiable). */

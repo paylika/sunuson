@@ -11,6 +11,7 @@ import {
   PAYMENT_METHODS,
 } from "@/lib/config";
 import {
+  deleteTrack,
   requestPayout,
   updateArtistImage,
   updateArtistProfile,
@@ -35,7 +36,7 @@ import {
   SectionTitle,
   Stat,
 } from "./ui";
-import { Check, Copy, Lock, Plus, Share, Wallet } from "./icons";
+import { Check, Close, Copy, Lock, Plus, Share, Wallet } from "./icons";
 
 type Vue = "artiste" | "fan";
 
@@ -347,6 +348,8 @@ function AtelierView({
                       : "Inédit"}
                   </span>
                 )}
+
+                <SupprimerMorceau trackId={t.id} artistSlug={artist.slug} />
               </div>
             ))}
           </div>
@@ -390,6 +393,63 @@ function AtelierView({
 
       <MesSoutiens supports={supports} />
     </>
+  );
+}
+
+/* ------------------------------------------------------ retirer un son */
+
+/**
+ * Retire un morceau, en deux temps.
+ *
+ * La suppression est définitive et la page de l'artiste est publique : une
+ * boîte de dialogue serait ignorée, alors qu'un bouton qui change de tête
+ * oblige à regarder ce qu'on fait.
+ */
+function SupprimerMorceau({
+  trackId,
+  artistSlug,
+}: {
+  trackId: string;
+  artistSlug: string;
+}) {
+  const router = useRouter();
+  const [confirme, setConfirme] = useState(false);
+  const [envoi, demarrer] = useTransition();
+
+  if (!confirme) {
+    return (
+      <button
+        onClick={() => setConfirme(true)}
+        aria-label="Retirer ce son"
+        className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-fg/25 transition active:scale-90 hover:text-fg/50"
+      >
+        <Close size={14} />
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex shrink-0 items-center gap-1.5">
+      <button
+        onClick={() => setConfirme(false)}
+        className="rounded-full bg-fg/[.07] px-3 py-1.5 text-[11px] font-semibold text-fg/60"
+      >
+        Non
+      </button>
+      <button
+        onClick={() =>
+          demarrer(async () => {
+            const res = await deleteTrack({ trackId, artistSlug });
+            if (res.ok) router.refresh();
+            else setConfirme(false);
+          })
+        }
+        disabled={envoi}
+        className="rounded-full bg-red-500 px-3 py-1.5 text-[11px] font-bold text-white"
+      >
+        {envoi ? "…" : "Retirer"}
+      </button>
+    </div>
   );
 }
 
