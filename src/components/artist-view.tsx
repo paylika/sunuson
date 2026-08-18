@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { APP_DOMAIN } from "@/lib/config";
 import { compact } from "@/lib/format";
 import type { Artist, Support, Track } from "@/lib/types";
@@ -28,6 +28,34 @@ export function ArtistView({
     open: false,
   });
   const [copied, setCopied] = useState(false);
+
+  // Le bouton Soutenir défilait avec la page : dès que le fan regardait la
+  // liste des sons, le seul bouton qui rapporte de l'argent sortait de
+  // l'écran. On le rappelle en barre fixe, mais seulement une fois l'original
+  // hors de vue — sinon le premier écran afficherait deux fois le même geste.
+  const ancre = useRef<HTMLDivElement>(null);
+  const [rappel, setRappel] = useState(false);
+
+  useEffect(() => {
+    const cible = ancre.current;
+    if (!cible) return;
+
+    const obs = new IntersectionObserver(
+      ([e]) => setRappel(!e.isIntersecting),
+      { rootMargin: "-120px 0px 0px 0px" },
+    );
+    obs.observe(cible);
+    return () => obs.disconnect();
+  }, []);
+
+  // Hauteur annoncée au mini-lecteur, qui monte d'autant.
+  useEffect(() => {
+    const racine = document.documentElement;
+    racine.style.setProperty("--barre-soutien", rappel ? "72px" : "0px");
+    return () => {
+      racine.style.removeProperty("--barre-soutien");
+    };
+  }, [rappel]);
 
   const link = `${APP_DOMAIN}/a/${artist.slug}`;
 
@@ -120,13 +148,15 @@ export function ArtistView({
         <Stat value={String(tracks.length)} label="sons" />
       </Glass>
 
-      <Button
-        onClick={() => setSheet({ open: true })}
-        className="mt-3.5 h-15 w-full text-[16.5px] glow-brand"
-      >
-        <Spark size={18} />
-        Soutenir {artist.name}
-      </Button>
+      <div ref={ancre}>
+        <Button
+          onClick={() => setSheet({ open: true })}
+          className="mt-3.5 h-15 w-full text-[16.5px] glow-brand"
+        >
+          <Spark size={18} />
+          Soutenir {artist.name}
+        </Button>
+      </div>
 
       {/* ------------------------------------------------- lien partageable */}
       <button
@@ -182,6 +212,42 @@ export function ArtistView({
         )}
 
         {tab === "soutiens" && <SupporterWall supports={supports} />}
+      </div>
+
+      {/* ------------------------------------------ rappel du geste payant */}
+      <div
+        className={cx(
+          "fixed inset-x-0 z-30 mx-auto w-full max-w-[480px] px-4 transition-all duration-200",
+          rappel
+            ? "pointer-events-auto translate-y-0 opacity-100"
+            : "pointer-events-none translate-y-3 opacity-0",
+        )}
+        style={{ bottom: 104 }}
+        aria-hidden={!rappel}
+      >
+        <button
+          onClick={() => setSheet({ open: true })}
+          tabIndex={rappel ? 0 : -1}
+          className="flex h-15 w-full items-center gap-3 rounded-[22px] grad-brand px-3 text-ink glow-brand transition active:scale-[.98]"
+        >
+          <Avatar
+            name={artist.name}
+            gradient={artist.gradient}
+            src={artist.avatarUrl}
+            size={42}
+          />
+          <span className="min-w-0 flex-1 text-left">
+            <span className="block truncate text-[15.5px] font-bold leading-tight">
+              Soutenir {artist.name}
+            </span>
+            <span className="block text-[11px] font-medium text-ink/60">
+              Wave ou Orange Money
+            </span>
+          </span>
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink/12">
+            <Spark size={18} />
+          </span>
+        </button>
       </div>
 
       <SupportSheet

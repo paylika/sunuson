@@ -148,7 +148,11 @@ export function MiniPlayer({ bottom = 104 }: { bottom?: number }) {
   return (
     <div
       className="fixed inset-x-0 z-30 mx-auto w-full max-w-[480px] px-4"
-      style={{ bottom }}
+      // La page artiste pose une barre de soutien collante au-dessus de la
+      // navigation. Elle annonce sa hauteur par cette variable plutôt que par
+      // un contexte : le mini-lecteur monte alors tout seul, sans qu'aucun
+      // écran n'ait à connaître l'existence de l'autre.
+      style={{ bottom: `calc(${bottom}px + var(--barre-soutien, 0px))` }}
     >
       <div className="glass-strong sheen overflow-hidden rounded-[22px] rise">
         <div className="flex items-center gap-3 p-2.5">

@@ -1,9 +1,10 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   APP_DOMAIN,
+  APP_NAME,
   COMMISSION_RATE,
   MIN_PAYOUT,
   MIN_SUPPORT,
@@ -31,7 +32,7 @@ import {
   SectionTitle,
   Stat,
 } from "./ui";
-import { Check, Copy, Lock, Plus, Wallet } from "./icons";
+import { Check, Copy, Lock, Plus, Share, Wallet } from "./icons";
 
 type Vue = "artiste" | "fan";
 
@@ -110,14 +111,47 @@ function AtelierView({
   balance: Balance;
 }) {
   const router = useRouter();
+  const params = useSearchParams();
   const [copied, setCopied] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+
+  // L'onglet « Publier » de la barre du bas mène ici avec ?publier=1. On
+  // ouvre la feuille, puis on nettoie l'adresse : sans ça, un simple retour
+  // arrière la rouvrirait sans que l'artiste l'ait demandé.
+  useEffect(() => {
+    if (params.get("publier") !== "1") return;
+    setUploadOpen(true);
+    router.replace("/dashboard");
+  }, [params, router]);
   const [pending, startTransition] = useTransition();
 
   const link = `${APP_DOMAIN}/a/${artist.slug}`;
   const month = new Date().toISOString().slice(0, 7);
   const thisMonth = supports.filter((s) => s.createdAt.startsWith(month));
   const topSupport = [...supports].sort((a, b) => b.amount - a.amount)[0];
+
+  /**
+   * Copier est un mauvais geste sur téléphone : il faut ensuite ouvrir
+   * WhatsApp, trouver la conversation, coller. La feuille système y dépose le
+   * lien directement. On garde la copie en secours pour les ordinateurs, où
+   * le partage natif n'existe pas.
+   */
+  async function share() {
+    const url = `https://${link}`;
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({
+          title: artist.name,
+          text: `Écoute mes sons et soutiens-moi sur ${APP_NAME}`,
+          url,
+        });
+        return;
+      } catch {
+        /* partage annulé */
+      }
+    }
+    await copy();
+  }
 
   async function copy() {
     try {
@@ -207,6 +241,14 @@ function AtelierView({
               {copied ? <Check size={17} /> : <Copy size={16} />}
             </button>
           </div>
+          <button
+            onClick={share}
+            className="mt-2.5 flex h-13 w-full items-center justify-center gap-2 rounded-full grad-brand text-[15px] font-bold text-ink transition active:scale-[.98]"
+          >
+            <Share size={17} />
+            Partager mon lien
+          </button>
+
           <p className="mt-2.5 text-[11.5px] leading-relaxed text-fg/40">
             Instagram, TikTok, statut WhatsApp. C&apos;est ce lien qui travaille
             pour toi, pas la plateforme.

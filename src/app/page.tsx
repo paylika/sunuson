@@ -1,39 +1,38 @@
-import { getArtists, getBalances, getTracksByArtist } from "@/lib/queries";
-import { HomeView } from "@/components/home-view";
+import { getArtists, getBalances, getTrackTitles } from "@/lib/queries";
+import { DiscoverView } from "@/components/discover-view";
 import { Shell } from "@/components/shell";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * La racine est l'écran Découvrir.
+ *
+ * Il y avait avant un accueil distinct : artiste à la une, classement, rappel
+ * du fonctionnement. Il montrait des listes d'artistes que Découvrir montrait
+ * déjà, et reposait sur une hypothèse fausse ici — qu'on ouvre l'application
+ * pour la parcourir. Les fans arrivent par le lien d'un artiste partagé dans
+ * WhatsApp et atterrissent sur /a/son-nom. Le classement, seul contenu qui
+ * lui était propre, a été remonté en tête de cet écran.
+ */
 export default async function AccueilPage() {
-  const artists = await getArtists();
-  const featured = artists[0] ?? null;
-
-  const [balances, featuredTracks] = await Promise.all([
+  const [artists, balances, titles] = await Promise.all([
+    getArtists(),
     getBalances(),
-    featured ? getTracksByArtist(featured.id) : Promise.resolve([]),
+    getTrackTitles(),
   ]);
 
-  // Classement par NOMBRE de soutiens, jamais par montant : un palmarès des
-  // revenus expose ce que gagne chaque artiste, et humilie ceux du bas. Le
-  // compte donne la même preuve sociale sans afficher d'argent.
-  const ranking = artists
-    .map((a) => ({
-      artist: a,
-      total: balances.get(a.id)?.gross ?? 0,
-      count: balances.get(a.id)?.supportCount ?? 0,
-    }))
-    .sort((x, y) => y.count - x.count || y.total - x.total);
+  const rows = artists.map((artist) => ({
+    artist,
+    total: balances.get(artist.id)?.gross ?? 0,
+    count: balances.get(artist.id)?.supportCount ?? 0,
+    titles: titles.get(artist.id) ?? [],
+  }));
+
+  const trackCount = [...titles.values()].reduce((n, t) => n + t.length, 0);
 
   return (
     <Shell>
-      <HomeView
-        featured={featured}
-        featuredTracks={featuredTracks}
-        featuredSupports={
-          featured ? (balances.get(featured.id)?.supportCount ?? 0) : 0
-        }
-        ranking={ranking}
-      />
+      <DiscoverView rows={rows} trackCount={trackCount} />
     </Shell>
   );
 }

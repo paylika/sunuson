@@ -532,6 +532,5 @@ function unwrapOrNull<T>(res: { data: T | null; error: unknown }): T | null {
 function revalidateAll(artistSlug?: string) {
   if (artistSlug) revalidatePath(`/a/${artistSlug}`);
   revalidatePath("/");
-  revalidatePath("/decouvrir");
   revalidatePath("/dashboard");
 }

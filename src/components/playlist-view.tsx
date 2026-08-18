@@ -83,7 +83,7 @@ export function PlaylistView() {
             ton téléphone, sans compte.
           </p>
           <Link
-            href="/decouvrir"
+            href="/"
             className="mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-full grad-brand px-6 text-[14.5px] font-semibold text-ink glow-brand active:scale-[.98]"
           >
             Découvrir des artistes

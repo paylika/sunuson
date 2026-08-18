@@ -12,7 +12,7 @@ import {
   NameWithBadge,
   SectionTitle,
 } from "./ui";
-import { ChevronRight, Music, Search } from "./icons";
+import { ChevronRight, Flame, Music, Search } from "./icons";
 
 export type DiscoverRow = {
   artist: Artist;
@@ -35,6 +35,18 @@ export function DiscoverView({
   // Ziguinchor apparaîtra sans qu'on ait à toucher au code.
   const villes = useMemo(
     () => ["Toutes", ...new Set(rows.map((r) => r.artist.city).filter(Boolean))],
+    [rows],
+  );
+
+  // Le classement compte les SOUTIENS, jamais les montants : un palmarès des
+  // revenus expose ce que gagne chaque artiste et humilie ceux du bas. Le
+  // nombre donne la même preuve sociale sans afficher d'argent.
+  const podium = useMemo(
+    () =>
+      [...rows]
+        .sort((x, y) => y.count - x.count || y.total - x.total)
+        .slice(0, 3)
+        .filter((r) => r.count > 0),
     [rows],
   );
 
@@ -86,6 +98,57 @@ export function DiscoverView({
           </button>
         ))}
       </div>
+
+      {/* Masqué dès qu'on cherche ou qu'on filtre : au milieu de résultats
+          précis, un palmarès général n'est plus une réponse, c'est du bruit. */}
+      {podium.length > 0 && !q.trim() && ville === "Toutes" && (
+        <section className="mt-6">
+          <SectionTitle>Ils montent en ce moment</SectionTitle>
+
+          <div className="space-y-2.5">
+            {podium.map(({ artist, count }, i) => (
+              <Link key={artist.id} href={`/a/${artist.slug}`} className="block">
+                <Glass className="flex items-center gap-3.5 rounded-[24px] px-3.5 py-3 transition active:scale-[.99]">
+                  <span
+                    className={cx(
+                      "grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11.5px] font-bold",
+                      i === 0
+                        ? "bg-gold-400 text-ink-950"
+                        : i === 1
+                          ? "bg-fg/85 text-ink"
+                          : "grad-brand text-ink",
+                    )}
+                  >
+                    {i + 1}
+                  </span>
+                  <Avatar
+                    name={artist.name}
+                    gradient={artist.gradient}
+                    src={artist.avatarUrl}
+                    size={44}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[14.5px] font-semibold">
+                      <NameWithBadge
+                        name={artist.name}
+                        verified={artist.verified}
+                      />
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-1 text-[11.5px] text-fg/40">
+                      {i === 0 && (
+                        <Flame size={13} className="shrink-0 text-acid-500" />
+                      )}
+                      <span className="truncate">
+                        {artist.city} · {count} soutien{count > 1 ? "s" : ""}
+                      </span>
+                    </div>
+                  </div>
+                </Glass>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="mt-6">
         <SectionTitle>
