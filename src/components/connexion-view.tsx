@@ -69,7 +69,7 @@ export function ConnexionView({
     setEnvoi(false);
 
     if (error) {
-      setErreur(error.message);
+      setErreur(messageErreur(error.message));
       return;
     }
     setEtape("verification");
@@ -287,4 +287,40 @@ export function ConnexionView({
       </p>
     </div>
   );
+}
+
+/**
+ * Les erreurs de Supabase arrivent en anglais et en jargon. Affichées telles
+ * quelles, elles ne disent rien à un fan — et surtout pas ce qu'il doit faire.
+ *
+ * La première est de loin la plus fréquente : le serveur de courriel intégré à
+ * Supabase est bridé à quelques envois par heure et n'est pas prévu pour la
+ * production. Tant qu'un vrai SMTP n'est pas branché, deux essais suffisent à
+ * se retrouver bloqué.
+ */
+function messageErreur(brut: string): string {
+  const m = brut.toLowerCase();
+
+  if (m.includes("rate limit") || m.includes("too many")) {
+    return "Trop de demandes. Le serveur de courriel est bridé — réessaie dans une heure, ou branche un vrai SMTP.";
+  }
+  if (m.includes("for security purposes")) {
+    const s = brut.match(/(\d+)\s*seconds?/)?.[1];
+    return s
+      ? `Attends ${s} secondes avant de redemander un envoi.`
+      : "Attends quelques secondes avant de redemander un envoi.";
+  }
+  if (m.includes("signups not allowed") || m.includes("signup is disabled")) {
+    return "Les inscriptions sont fermées côté Supabase. Réactive-les dans Authentication → Providers → Email.";
+  }
+  if (m.includes("invalid format") || m.includes("validate email")) {
+    return "Cette adresse ne semble pas valide.";
+  }
+  if (m.includes("error sending") || m.includes("smtp")) {
+    return "Le courriel n'est pas parti. Le SMTP de Supabase refuse l'envoi.";
+  }
+  if (m.includes("fetch") || m.includes("network")) {
+    return "Connexion impossible. Vérifie ta connexion internet.";
+  }
+  return brut;
 }
