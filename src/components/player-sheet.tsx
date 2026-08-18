@@ -5,7 +5,7 @@ import { trackSupporters } from "@/lib/actions";
 import type { TrackSupporter } from "@/lib/queries";
 import { duration, initials } from "@/lib/format";
 import { ambianceDe, type Ambiance } from "@/lib/couleur";
-import { usePlayer, useUnlock } from "./providers";
+import { usePlayer, useUnlock, type QueueItem } from "./providers";
 import { PlaylistButton } from "./playlist-button";
 import { SupportSheet } from "./support-sheet";
 import { Waveform } from "./waveform";
@@ -44,6 +44,9 @@ export function PlayerSheet() {
     previous,
     repeat,
     toggleRepeat,
+    queue,
+    index,
+    goTo,
   } = usePlayer();
   const { isUnlocked } = useUnlock();
 
@@ -254,6 +257,9 @@ export function PlayerSheet() {
           </button>
         </div>
 
+        {/* ------------------------------------------------------- la suite */}
+        <FileDAttente queue={queue} index={index} goTo={goTo} />
+
         {/* -------------------------------------------------------- soutiens */}
         <div className="mt-auto pt-6">
           <SupportersStrip supporters={supporters} loading={loading} />
@@ -275,6 +281,125 @@ export function PlayerSheet() {
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
       />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------- la file */
+
+/**
+ * Ce qui vient après.
+ *
+ * Un lecteur qui ne montre pas le morceau suivant donne l'impression que
+ * l'écoute s'arrête là. La carte du suivant se glisse sous celle du morceau
+ * en cours, décalée : on comprend qu'il y a une pile, et qu'elle avance.
+ *
+ * Repliée par défaut : sur un écran de téléphone, la liste complète mangerait
+ * la place du bouton Soutenir, qui est la raison d'être de cet écran.
+ */
+function FileDAttente({
+  queue,
+  index,
+  goTo,
+}: {
+  queue: QueueItem[];
+  index: number;
+  goTo: (i: number) => void;
+}) {
+  const [ouverte, setOuverte] = useState(false);
+
+  const suivant = queue[index + 1];
+  const restants = queue.length - index - 1;
+
+  if (queue.length <= 1) return null;
+
+  return (
+    <div className="mt-5">
+      <div className="flex items-baseline justify-between px-1">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-fg/35">
+          {suivant ? "À suivre" : "Dernier de la file"}
+        </span>
+        <button
+          onClick={() => setOuverte((o) => !o)}
+          className="text-[11.5px] font-semibold text-acid-500"
+        >
+          {ouverte
+            ? "Replier"
+            : `Toute la file · ${queue.length}`}
+        </button>
+      </div>
+
+      {!ouverte && suivant && (
+        <button
+          onClick={() => goTo(index + 1)}
+          className="relative mt-2 w-full text-left"
+        >
+          {/* La carte fantôme derrière suggère la pile : c'est elle qui dit
+              qu'il en reste d'autres, sans les lister. */}
+          {restants > 1 && (
+            <span className="absolute inset-x-3 -bottom-1.5 h-8 rounded-2xl bg-fg/[.05]" />
+          )}
+
+          <span className="relative flex items-center gap-3 rounded-2xl glass px-3 py-2.5 transition active:scale-[.99]">
+            <Cover
+              gradient={suivant.artist.gradient}
+              src={suivant.track.coverUrl}
+              rounded="rounded-xl"
+              className="h-11 w-11 shrink-0"
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13.5px] font-semibold">
+                {suivant.track.title}
+              </span>
+              <span className="mt-0.5 block truncate text-[11px] text-fg/40">
+                {suivant.artist.name}
+                {restants > 1 && ` · ${restants - 1} autre${restants > 2 ? "s" : ""} ensuite`}
+              </span>
+            </span>
+            <SkipForward size={16} className="shrink-0 text-fg/30" />
+          </span>
+        </button>
+      )}
+
+      {ouverte && (
+        <div className="mt-2 max-h-52 space-y-1.5 overflow-y-auto pr-0.5">
+          {queue.map((item, i) => {
+            const enCours = i === index;
+            const passe = i < index;
+
+            return (
+              <button
+                key={`${item.track.id}-${i}`}
+                onClick={() => goTo(i)}
+                className={cx(
+                  "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition active:scale-[.99]",
+                  enCours ? "bg-acid-500/10" : "hover:bg-fg/[.04]",
+                  // Ce qui est déjà passé s'efface sans disparaître : on peut
+                  // toujours y revenir, mais l'œil va d'abord vers la suite.
+                  passe && "opacity-40",
+                )}
+              >
+                <span className="w-4 shrink-0 text-center text-[10.5px] font-bold tabular-nums text-fg/30">
+                  {i + 1}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span
+                    className={cx(
+                      "block truncate text-[13px] font-medium",
+                      enCours && "text-acid-500",
+                    )}
+                  >
+                    {item.track.title}
+                  </span>
+                  <span className="block truncate text-[10.5px] text-fg/40">
+                    {item.artist.name}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

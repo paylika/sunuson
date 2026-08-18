@@ -28,6 +28,12 @@ type PlayerState = {
   playQueue: (items: QueueItem[], startIndex: number) => void;
   /** Vrai seulement quand il y a de quoi enchaîner. */
   hasQueue: boolean;
+  /** La file en cours, pour montrer ce qui vient après. */
+  queue: QueueItem[];
+  /** Rang du morceau en cours dans la file. */
+  index: number;
+  /** Saute à un rang de la file, sans la reconstruire. */
+  goTo: (index: number) => void;
   next: () => void;
   previous: () => void;
   repeat: boolean;
@@ -118,13 +124,33 @@ function PlayerProvider({ children }: { children: ReactNode }) {
       const item = items[startIndex];
       if (!item) return;
 
-      // Même morceau déjà en cours dans la même file : simple pause/reprise.
-      if (current?.track.id === item.track.id && queue.length === items.length) {
+      // Le morceau en cours ne redémarre JAMAIS.
+      //
+      // On écoute un son trouvé dans Découvrir, on passe dans Playlist où il
+      // figure aussi, on appuie dessus : avant, une nouvelle file était créée
+      // et la lecture repartait à zéro. On change donc la file et la position
+      // dans cette file — ce qui débloque suivant et précédent — sans toucher
+      // à la lecture elle-même.
+      const memeMorceau = current?.track.id === item.track.id;
+      // Même morceau ET même contexte : le bouton reste un pause/reprise
+      // ordinaire, comme dans n'importe quel lecteur.
+      const memeFile = queue.length === items.length;
+
+      if (memeMorceau && memeFile) {
         setPlaying((p) => !p);
         return;
       }
+
       setQueue(items);
       setIndex(startIndex);
+
+      if (memeMorceau) {
+        // Contexte différent, même son : on adopte la nouvelle file — c'est
+        // elle qui donne suivant et précédent — sans toucher à la lecture.
+        setPlaying(true);
+        return;
+      }
+
       setPosition(0);
       setPlaying(true);
     },
@@ -151,6 +177,22 @@ function PlayerProvider({ children }: { children: ReactNode }) {
     setPlaying(true);
   }, [position, queue.length]);
 
+  const goTo = useCallback(
+    (i: number) => {
+      if (i < 0 || i >= queue.length) return;
+      // Sauter sur le morceau déjà en cours ne le redémarre pas : c'est la
+      // même règle que partout ailleurs, on ne coupe jamais une écoute.
+      if (i === index) {
+        setPlaying(true);
+        return;
+      }
+      setIndex(i);
+      setPosition(0);
+      setPlaying(true);
+    },
+    [queue.length, index],
+  );
+
   const seek = useCallback((seconds: number) => {
     setPosition(seconds);
     const el = audioRef.current;
@@ -168,6 +210,9 @@ function PlayerProvider({ children }: { children: ReactNode }) {
       hasQueue,
       next,
       previous,
+      queue,
+      index,
+      goTo,
       repeat,
       toggleRepeat: () => setRepeat((r) => !r),
       seek,
@@ -195,6 +240,9 @@ function PlayerProvider({ children }: { children: ReactNode }) {
       hasQueue,
       next,
       previous,
+      queue,
+      index,
+      goTo,
       repeat,
       seek,
       expanded,

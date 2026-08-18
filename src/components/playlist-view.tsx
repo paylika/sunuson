@@ -9,7 +9,15 @@ import { usePlayer, usePlaylist, useUnlock } from "./providers";
 import { PlaylistButton } from "./playlist-button";
 import { SupportSheet } from "./support-sheet";
 import { Cover, cx, Glass } from "./ui";
-import { Bookmark, ChevronRight, Lock, Pause, Play, Spark } from "./icons";
+import {
+  ArrowUpRight,
+  Bookmark,
+  ChevronRight,
+  Lock,
+  Pause,
+  Play,
+  Spark,
+} from "./icons";
 
 type Entry = { track: Track; artist: Artist };
 
@@ -149,15 +157,20 @@ export function PlaylistView() {
                   </span>
                 </button>
 
-                <Link
-                  href={`/a/${artist.slug}`}
-                  className="min-w-0 flex-1"
-                  aria-label={`Voir ${artist.name}`}
+                {/* Le titre lance la lecture, il n'ouvre plus la page de
+                    l'artiste. Dans une playlist, appuyer sur un son veut dire
+                    « joue-le » — se retrouver ailleurs est une trahison de ce
+                    geste. La page de l'artiste garde son propre bouton. */}
+                <button
+                  onClick={() =>
+                    locked ? setSheet({ track, artist }) : playQueue(entries, i)
+                  }
+                  className="min-w-0 flex-1 text-left"
                 >
                   <span
                     className={cx(
                       "block truncate text-[14.5px] font-medium",
-                      isCurrent && "text-brand-300",
+                      isCurrent && "text-acid-500",
                     )}
                   >
                     {track.title}
@@ -169,6 +182,14 @@ export function PlaylistView() {
                       track.plays > 0 &&
                       ` · ${compact(track.plays)} écoutes`}
                   </span>
+                </button>
+
+                <Link
+                  href={`/a/${artist.slug}`}
+                  aria-label={`Voir la page de ${artist.name}`}
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-fg/30 transition active:scale-90"
+                >
+                  <ArrowUpRight size={16} />
                 </Link>
 
                 <button
