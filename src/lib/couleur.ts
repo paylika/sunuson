@@ -35,7 +35,16 @@ export async function ambianceDe(url: string): Promise<Ambiance | null> {
 async function extraire(url: string): Promise<Ambiance | null> {
   const img = new Image();
   img.crossOrigin = "anonymous";
-  img.src = url;
+
+  // Paramètre inutile mais indispensable.
+  //
+  // La pochette est déjà affichée par une balise <img> ordinaire, donc
+  // chargée SANS en-tête CORS. Sans ce paramètre, notre seconde requête tombe
+  // sur cette entrée de cache et le navigateur refuse d'en lire les pixels :
+  // l'extraction échoue en silence et le fond reste sur sa couleur de repli.
+  // Une adresse légèrement différente force une entrée de cache distincte,
+  // demandée en CORS dès le départ.
+  img.src = `${url}${url.includes("?") ? "&" : "?"}ambiance=1`;
 
   await new Promise<void>((resolve, reject) => {
     img.onload = () => resolve();

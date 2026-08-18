@@ -17,7 +17,8 @@
     "cf:size": "wrangler deploy --dry-run",
     "icons": "node scripts/icons-build.mjs",
     "db:seed": "node scripts/db-seed.mjs",
-    "db:inspect": "node scripts/db-inspect.mjs"
+    "db:inspect": "node scripts/db-inspect.mjs",
+    "db:covers": "node scripts/covers-demo.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
