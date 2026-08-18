@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { viewer } from "@/lib/auth";
 import { BottomNav } from "./bottom-nav";
 import { MiniPlayer } from "./player-ui";
@@ -21,7 +21,12 @@ export async function Shell({ children }: { children: ReactNode }) {
     <div className="relative mx-auto w-full max-w-[480px] px-4 pb-52 pt-5">
       {children}
       <MiniPlayer />
-      <BottomNav estArtiste={!!artist} />
+      {/* La barre lit les paramètres d'adresse pour savoir si « Publier » est
+          l'écran en cours. Next exige alors une frontière de suspense, sans
+          quoi toute page qui l'inclut devient impossible à prérendre. */}
+      <Suspense fallback={<div className="h-24" />}>
+        <BottomNav estArtiste={!!artist} />
+      </Suspense>
       <PlayerSheet />
     </div>
   );
