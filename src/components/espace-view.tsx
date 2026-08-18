@@ -3,12 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
-import {
-  createArtistProfile,
-  updateFanAvatar,
-  updateFanName,
-} from "@/lib/actions";
-import { APP_DOMAIN } from "@/lib/config";
+import { updateFanAvatar, updateFanName } from "@/lib/actions";
 import { fcfa, timeAgo } from "@/lib/format";
 import type { SoutienDuFan } from "@/lib/queries";
 import { usePlaylist } from "./providers";
@@ -173,7 +168,33 @@ export function EspaceFan({
  * jamais combien.
  */
 function MesSoutiens({ soutiens }: { soutiens: SoutienDuFan[] }) {
-  if (soutiens.length === 0) return null;
+  // Une section qui disparaît quand elle est vide se lit comme une panne :
+  // on ne sait pas si rien n'a été soutenu ou si l'écran est cassé.
+  if (soutiens.length === 0) {
+    return (
+      <section className="mt-8">
+        <h2 className="mb-3 px-1 display text-[22px] font-extrabold">
+          Mes soutiens
+        </h2>
+        <Glass className="rounded-[24px] px-5 py-7 text-center">
+          <Spark size={22} className="mx-auto text-fg/20" />
+          <p className="mt-3 text-[13px] leading-relaxed text-fg/50">
+            Tu n&apos;as encore soutenu personne.
+          </p>
+          <p className="mt-1.5 text-[11.5px] leading-relaxed text-fg/35">
+            Ce que tu envoies à un artiste apparaîtra ici.
+          </p>
+          <Link
+            href="/"
+            className="mt-4 inline-flex h-11 items-center gap-1.5 rounded-full glass px-5 text-[13px] font-semibold text-fg/75 transition active:scale-95"
+          >
+            Trouver un artiste
+            <ChevronRight size={15} />
+          </Link>
+        </Glass>
+      </section>
+    );
+  }
 
   const total = soutiens
     .filter((s) => !s.enAttente)
@@ -425,108 +446,44 @@ function Crayon() {
 /* -------------------------------------------------------- devenir artiste */
 
 /**
- * Deux champs, pas douze.
+ * Invitation à ouvrir une page d'artiste — une porte, pas un formulaire.
  *
- * Tout le reste — bio, photos, moyen de retrait — s'ajoute ensuite depuis
- * l'atelier. Un formulaire long ici ferait abandonner un rappeur qui voulait
- * juste voir à quoi ça ressemble.
+ * Le formulaire était posé directement ici : deux champs remplis par curiosité
+ * et n'importe quel fan se retrouvait artiste. Or une page d'artiste engage —
+ * elle porte un nom public, une adresse partageable, et une déclaration de
+ * droits sur ce qui sera publié. Le geste mérite d'être délibéré, et l'étape
+ * qui l'a rendu tel n'est pas une friction arbitraire : c'est justement la
+ * déclaration de droits, qu'il fallait de toute façon recueillir.
  */
 function DevenirArtiste() {
-  const router = useRouter();
-  const [nom, setNom] = useState("");
-  const [ville, setVille] = useState("");
-  const [erreur, setErreur] = useState<string | null>(null);
-  const [envoi, demarrer] = useTransition();
-
-  const valide = nom.trim().length >= 2;
-
-  function creer() {
-    setErreur(null);
-    demarrer(async () => {
-      const res = await createArtistProfile({ name: nom, city: ville });
-      if (!res.ok) {
-        setErreur(res.error);
-        return;
-      }
-      router.refresh();
-    });
-  }
-
   return (
     <section className="mt-8">
-      <div className="relative overflow-hidden rounded-[30px] grad-brand p-6 text-ink glow-brand">
-        <span className="inline-flex rounded-full bg-ink/12 px-3 py-1.5 text-[11px] font-bold leading-none">
-          Tu fais de la musique ?
-        </span>
-        <h2 className="display mt-3.5 text-[28px] font-extrabold !leading-[1.08]">
-          Ouvre ta page
-          <br />
-          d&apos;artiste.
-        </h2>
-        <p className="mt-3 text-[13px] leading-relaxed text-ink/70">
-          Tu gardes ce compte et ta playlist. Tu reçois en plus un lien à ton
-          nom, à coller dans ta bio, et tes fans pourront t&apos;envoyer de
-          l&apos;argent.
+      <Glass className="rounded-[28px] p-5">
+        <div className="flex items-center gap-3">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-acid-500/10 text-acid-500">
+            <Spark size={19} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[16px] font-bold">Tu fais de la musique ?</h2>
+            <p className="mt-0.5 text-[11.5px] text-fg/40">
+              Tu gardes ce compte et ta playlist
+            </p>
+          </div>
+        </div>
+
+        <p className="mt-3.5 text-[13px] leading-relaxed text-fg/55">
+          Une page à ton nom, un lien à mettre dans ta bio, et tes fans peuvent
+          t&apos;envoyer de l&apos;argent par Wave ou Orange Money.
         </p>
 
-        <input
-          value={nom}
-          onChange={(e) => setNom(e.target.value)}
-          placeholder="Ton nom d'artiste"
-          maxLength={60}
-          className="mt-5 h-13 w-full rounded-2xl bg-ink/10 px-4 text-[15px] text-ink outline-none placeholder:text-ink/40 focus:bg-ink/15"
-        />
-        <input
-          value={ville}
-          onChange={(e) => setVille(e.target.value)}
-          placeholder="Ta ville (facultatif)"
-          maxLength={60}
-          className="mt-2 h-13 w-full rounded-2xl bg-ink/10 px-4 text-[15px] text-ink outline-none placeholder:text-ink/40 focus:bg-ink/15"
-        />
-
-        {nom.trim() && (
-          <p className="mt-2.5 text-[11.5px] text-ink/55">
-            Ton lien : {APP_DOMAIN}/a/
-            <span className="font-semibold">{apercuSlug(nom)}</span>
-          </p>
-        )}
-
-        {erreur && (
-          <p className="mt-2.5 rounded-2xl bg-ink/10 px-4 py-3 text-[12.5px] text-ink">
-            {erreur}
-          </p>
-        )}
-
-        <button
-          onClick={creer}
-          disabled={!valide || envoi}
-          className={cx(
-            "mt-3 flex h-13 w-full items-center justify-center gap-2 rounded-full text-[15.5px] font-bold transition active:scale-[.98]",
-            valide && !envoi
-              ? "bg-ink text-fg"
-              : "bg-ink/15 text-ink/40 active:scale-100",
-          )}
+        <Link
+          href="/devenir-artiste"
+          className="mt-4 flex h-13 w-full items-center justify-center gap-2 rounded-full glass text-[14.5px] font-semibold text-fg/85 transition active:scale-[.98]"
         >
-          {envoi ? "Création…" : "Créer ma page"}
-          {!envoi && <ChevronRight size={16} />}
-        </button>
-      </div>
+          Ouvrir ma page d&apos;artiste
+          <ChevronRight size={16} />
+        </Link>
+      </Glass>
     </section>
-  );
-}
-
-/**
- * Aperçu du lien pendant la frappe. Le serveur reste seul juge — il ajoute un
- * numéro en cas d'homonyme — mais voir son adresse se former donne envie de
- * finir, là où un champ nu ne promet rien.
- */
-function apercuSlug(nom: string) {
-  return (
-    nom
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "")
-      .slice(0, 24) || "artiste"
   );
 }
