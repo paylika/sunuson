@@ -10,6 +10,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { compterEcoute } from "@/lib/actions";
+import { APP_NAME as APP } from "@/lib/config";
 import type { Artist, Track } from "@/lib/types";
 
 /* ============================================================== lecteur */
@@ -61,9 +63,13 @@ function PlayerProvider({ children }: { children: ReactNode }) {
   const [repeat, setRepeat] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Un morceau ne se compte qu'une fois par session : sans ça, une boucle
+  // activée toute la soirée gonflerait le compteur d'un artiste.
+  const comptes = useRef<Set<string>>(new Set());
 
   const current = queue[index] ?? null;
   const track = current?.track ?? null;
+  const artistCourant = current?.artist ?? null;
   const hasQueue = queue.length > 1;
 
   const advance = useCallback(() => {
@@ -98,12 +104,61 @@ function PlayerProvider({ children }: { children: ReactNode }) {
     return () => window.clearInterval(id);
   }, [playing, track, advance]);
 
+  /**
+   * Charge le fichier du morceau courant, ou vide le lecteur.
+   *
+   * C'est ce vidage qui manquait : quand on passait sur un morceau SANS
+   * fichier — les sons de démonstration, par exemple — React retirait
+   * simplement l'attribut `src`, et l'élément continuait de jouer le
+   * précédent. Le fan entendait un morceau tout en en regardant un autre.
+   *
+   * Changer `src` ne suffit pas non plus : sans `load()`, le navigateur
+   * continue de lire le flux déjà en mémoire.
+   */
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+
+    const url = track?.audioUrl;
+
+    if (!url) {
+      el.pause();
+      el.removeAttribute("src");
+      el.load();
+      return;
+    }
+
+    // Comparaison sur l'adresse résolue : `src` peut être relatif, pas
+    // `currentSrc`. Sans ce test, un simple pause/reprise rechargerait le
+    // fichier et ferait repartir la lecture à zéro.
+    const absolue = new URL(url, window.location.href).href;
+    if (el.currentSrc !== absolue) {
+      el.src = url;
+      el.load();
+    }
+  }, [track?.audioUrl]);
+
   useEffect(() => {
     const el = audioRef.current;
     if (!el || !track?.audioUrl) return;
     if (playing) void el.play().catch(() => setPlaying(false));
     else el.pause();
   }, [playing, track]);
+
+  /**
+   * Trente secondes d'écoute valent une écoute, comme sur les grandes
+   * plateformes. En dessous, c'est un survol.
+   */
+  useEffect(() => {
+    if (!playing || !track || position < 30) return;
+    if (comptes.current.has(track.id)) return;
+
+    comptes.current.add(track.id);
+    void compterEcoute(track.id).catch(() => {
+      // Un compteur raté ne doit rien interrompre : on ne réessaie pas non
+      // plus, l'écoute est déjà marquée comme comptée.
+    });
+  }, [playing, track, position]);
 
   const toggle = useCallback(
     (next: Track, artist: Artist) => {
@@ -193,6 +248,48 @@ function PlayerProvider({ children }: { children: ReactNode }) {
     [queue.length, index],
   );
 
+  /**
+   * Écran verrouillé, casque, voiture : les commandes du système.
+   *
+   * C'est ce qui sépare un lecteur de navigateur d'une vraie application de
+   * musique. Sans ça, le fan qui range son téléphone dans sa poche ne voit
+   * plus ni le titre ni la pochette, et ne peut pas mettre en pause sans
+   * rallumer l'écran et retrouver l'onglet.
+   */
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) {
+      return;
+    }
+    if (!track || !artistCourant) {
+      navigator.mediaSession.metadata = null;
+      return;
+    }
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: track.title,
+      artist: artistCourant.name,
+      album: track.releaseTitle ?? APP,
+      artwork: track.coverUrl
+        ? [{ src: track.coverUrl, sizes: "512x512", type: "image/jpeg" }]
+        : [],
+    });
+
+    navigator.mediaSession.playbackState = playing ? "playing" : "paused";
+
+    navigator.mediaSession.setActionHandler("play", () => setPlaying(true));
+    navigator.mediaSession.setActionHandler("pause", () => setPlaying(false));
+    // Les deux suivantes ne sont posées que dans une file : proposer
+    // « suivant » sur un morceau isolé afficherait un bouton mort.
+    navigator.mediaSession.setActionHandler(
+      "previoustrack",
+      queue.length > 1 ? previous : null,
+    );
+    navigator.mediaSession.setActionHandler(
+      "nexttrack",
+      queue.length > 1 ? next : null,
+    );
+  }, [track, artistCourant, playing, queue.length, next, previous]);
+
   const seek = useCallback((seconds: number) => {
     setPosition(seconds);
     const el = audioRef.current;
@@ -254,7 +351,6 @@ function PlayerProvider({ children }: { children: ReactNode }) {
       {children}
       <audio
         ref={audioRef}
-        src={track?.audioUrl}
         // La répétition est confiée au navigateur plutôt qu'au code.
         //
         // Avec `onEnded`, il fallait remettre la lecture en route à la main —

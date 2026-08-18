@@ -216,6 +216,40 @@ export async function updateArtistImage(
   return { ok: true };
 }
 
+/**
+ * Compte une écoute.
+ *
+ * Trente secondes, comme partout ailleurs dans le streaming. C'est la durée
+ * qui sépare une écoute d'un survol, et l'aligner sur la norme évite d'avoir
+ * à expliquer pourquoi nos chiffres diffèrent de ceux que l'artiste voit sur
+ * les autres plateformes.
+ *
+ * Aucune authentification requise : écouter est anonyme ici, et le rester est
+ * la règle du produit. En contrepartie le compteur est approximatif — c'est
+ * assumé, il sert à classer des artistes entre eux, pas à payer qui que ce
+ * soit. Le seul chiffre qui engage de l'argent est le soutien, et lui passe
+ * par le webhook de paiement.
+ */
+export async function compterEcoute(trackId: string): Promise<void> {
+  const admin = supabaseAdmin();
+
+  const { data } = await admin
+    .from("tracks")
+    .select("plays")
+    .eq("id", trackId)
+    .maybeSingle<{ plays: number }>();
+
+  if (!data) return;
+
+  // Lecture puis écriture : deux écoutes simultanées peuvent s'écraser. Une
+  // fonction SQL atomique serait plus juste, mais imposerait une migration de
+  // plus pour un compteur qui n'a aucune conséquence financière.
+  await admin
+    .from("tracks")
+    .update({ plays: (data.plays ?? 0) + 1 })
+    .eq("id", trackId);
+}
+
 /* ============================================================== dépôts */
 
 export type Depot =
