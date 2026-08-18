@@ -578,7 +578,7 @@ function ProfileEditor({ artist }: { artist: Artist }) {
 }
 
 /**
- * Bio, ville et label. Le bouton d'enregistrement n'apparaît qu'une fois
+ * Bio, Foy Tewal et label. Le bouton d'enregistrement n'apparaît qu'une fois
  * quelque chose modifié : sans ça, l'artiste ne sait pas s'il a un
  * changement en attente.
  */
@@ -639,7 +639,7 @@ function ProfileFields({ artist }: { artist: Artist }) {
         <input
           value={city}
           onChange={(e) => setCity(e.target.value)}
-          placeholder="Ville"
+          placeholder="Foy Tewal"
           maxLength={60}
           className="w-full rounded-2xl glass px-4 py-3.5 text-[14px] outline-none placeholder:text-fg/35"
         />

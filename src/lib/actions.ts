@@ -424,6 +424,9 @@ export async function createArtistProfile(input: {
   if (name.length < 2) {
     return { ok: false, error: "Ton nom d'artiste fait au moins 2 lettres." };
   }
+  if (city.length < 2) {
+    return { ok: false, error: "Indique ton Foy Tewal." };
+  }
 
   const admin = supabaseAdmin();
 

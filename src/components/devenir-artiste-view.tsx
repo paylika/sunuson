@@ -29,7 +29,10 @@ export function DevenirArtisteView() {
   const [erreur, setErreur] = useState<string | null>(null);
   const [envoi, demarrer] = useTransition();
 
-  const valide = nom.trim().length >= 2 && droits;
+  // Foy Tewal est obligatoire : c'est ce qui rattache l'artiste à un endroit,
+  // et c'est aussi ce qui alimente le filtre de Découvrir. Un artiste sans
+  // quartier est introuvable pour quelqu'un qui cherche les siens.
+  const valide = nom.trim().length >= 2 && ville.trim().length >= 2 && droits;
 
   function creer() {
     setErreur(null);
@@ -112,12 +115,16 @@ export function DevenirArtisteView() {
         )}
 
         <label className="mt-4 block px-1 text-[11.5px] font-bold uppercase tracking-wider text-fg/35">
-          Ta ville
+          Foy Tewal
         </label>
+        <p className="mt-1 px-1 text-[11.5px] leading-snug text-fg/40">
+          Le quartier que tu représentes. Dans le rap, on demande toujours
+          d&apos;où tu sors avant d&apos;écouter.
+        </p>
         <input
           value={ville}
           onChange={(e) => setVille(e.target.value)}
-          placeholder="Facultatif"
+          placeholder="Pikine, Guédiawaye, Médina…"
           maxLength={60}
           className="mt-2 h-14 w-full rounded-2xl glass px-5 text-[16px] outline-none placeholder:text-fg/25 focus:border-acid-500/40"
         />
