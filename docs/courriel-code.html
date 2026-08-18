@@ -1,0 +1,29 @@
+<!--
+  Modèle « Magic Link » de Supabase, réécrit pour envoyer un CODE.
+
+  À coller dans Authentication -> Email Templates -> Magic Link.
+  Sujet : Ton code Amplifan
+
+  Le seul élément indispensable est {{ .Token }}. Sans lui, Supabase envoie un
+  lien et l'écran de connexion attend un code qui n'arrivera jamais.
+
+  Styles en attribut style= et non en feuille CSS : Gmail supprime les balises
+  <style> d'un message, et l'essentiel du parc lit ses courriels sous Gmail.
+-->
+
+<h2 style="font-family:Helvetica,Arial,sans-serif;font-size:20px;font-weight:700;color:#0a0a0c;margin:0 0 12px">
+  Ton code Amplifan
+</h2>
+
+<p style="font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#44464d;margin:0 0 24px">
+  Saisis ces six chiffres dans la page où tu les as demandés.
+</p>
+
+<p style="font-family:Helvetica,Arial,sans-serif;font-size:34px;font-weight:700;letter-spacing:10px;color:#0a0a0c;background:#ddf247;border-radius:14px;padding:18px 0;text-align:center;margin:0 0 24px">
+  {{ .Token }}
+</p>
+
+<p style="font-family:Helvetica,Arial,sans-serif;font-size:13px;line-height:1.5;color:#8a8d95;margin:0">
+  Ce code expire dans une heure. Si tu n'as rien demandé, ignore ce message —
+  personne ne peut entrer sans lui.
+</p>
