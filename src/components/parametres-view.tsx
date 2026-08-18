@@ -13,9 +13,11 @@ import {
   type PaymentMethod,
 } from "@/lib/config";
 import { fcfa } from "@/lib/format";
+import type { Balance } from "@/lib/queries";
 import type { Artist } from "@/lib/types";
 import { BackButton } from "./page-header";
 import { ProfilArtisteEditeur } from "./profil-artiste";
+import { SoldeArtiste } from "./solde-artiste";
 import { Avatar, cx, Glass } from "./ui";
 import {
   ArrowUpRight,
@@ -35,6 +37,7 @@ export function ParametresView({
   payout,
   avatarUrl,
   nom,
+  balance,
 }: {
   email: string;
   artist: Artist | null;
@@ -43,6 +46,8 @@ export function ParametresView({
   avatarUrl?: string;
   /** Nom choisi par le fan. */
   nom?: string;
+  /** Solde de l'artiste. Absent pour un fan. */
+  balance?: Balance | null;
 }) {
   return (
     <>
@@ -114,12 +119,19 @@ export function ParametresView({
         </Bloc>
       )}
 
+      {artist && balance && (
+        <Bloc
+          titre="Mon argent"
+          note={`${Math.round((1 - COMMISSION_RATE) * 100)} % de chaque soutien te revient. Retrait dès ${fcfa(MIN_PAYOUT)}.`}
+        >
+          <SoldeArtiste artist={artist} balance={balance} />
+        </Bloc>
+      )}
+
       {artist && payout && (
         <Bloc
           titre="Où tu reçois l'argent"
-          note={`Retrait possible dès ${fcfa(MIN_PAYOUT)}. ${Math.round(
-            (1 - COMMISSION_RATE) * 100,
-          )} % du soutien te revient.`}
+          note="Ce numéro n'apparaît nulle part sur ta page publique."
         >
           <FormulaireRetrait artistId={artist.id} initial={payout} />
         </Bloc>

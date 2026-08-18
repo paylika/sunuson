@@ -553,6 +553,59 @@ export async function deleteTrack(input: {
   return { ok: true };
 }
 
+/**
+ * Déplace un morceau d'un rang dans la liste de l'artiste.
+ *
+ * Deux flèches plutôt qu'un glisser-déposer : sur un téléphone, attraper une
+ * ligne et la faire glisser entre dix autres demande une précision que
+ * personne n'a au pouce, et le geste entre en conflit avec le défilement.
+ */
+export async function deplacerMorceau(input: {
+  trackId: string;
+  sens: -1 | 1;
+}): Promise<ActionResult> {
+  const user = await currentUser();
+  if (!user) return { ok: false, error: "Connecte-toi d'abord." };
+
+  const admin = supabaseAdmin();
+
+  const { data: track } = await admin
+    .from("tracks")
+    .select("id, position, artist_id, artists!inner(user_id, slug)")
+    .eq("id", input.trackId)
+    .maybeSingle<{
+      id: string;
+      position: number;
+      artist_id: string;
+      artists: { user_id: string | null; slug: string } | null;
+    }>();
+
+  if (!track) return { ok: false, error: "Morceau introuvable." };
+  if (track.artists?.user_id !== user.id) {
+    return { ok: false, error: "Ce morceau n'est pas le tien." };
+  }
+
+  // Le voisin immédiat dans le sens demandé. On échange les deux positions
+  // plutôt que de renuméroter toute la liste : moins d'écritures, et aucun
+  // risque de laisser la liste à moitié réordonnée si ça coupe.
+  const { data: voisin } = await admin
+    .from("tracks")
+    .select("id, position")
+    .eq("artist_id", track.artist_id)
+    .order("position", { ascending: input.sens > 0 })
+    .filter("position", input.sens > 0 ? "gt" : "lt", track.position)
+    .limit(1)
+    .maybeSingle<{ id: string; position: number }>();
+
+  if (!voisin) return { ok: true };
+
+  await admin.from("tracks").update({ position: voisin.position }).eq("id", track.id);
+  await admin.from("tracks").update({ position: track.position }).eq("id", voisin.id);
+
+  revalidateAll(track.artists?.slug);
+  return { ok: true };
+}
+
 /* =============================================================== projets */
 
 /**

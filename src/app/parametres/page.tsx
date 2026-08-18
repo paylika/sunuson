@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { APP_NAME } from "@/lib/config";
 import { currentUser } from "@/lib/auth";
-import { getArtistByUser, getPayoutSettings, imageUrl } from "@/lib/queries";
+import {
+  getArtistByUser,
+  getBalance,
+  getPayoutSettings,
+  imageUrl,
+} from "@/lib/queries";
 import { ParametresView } from "@/components/parametres-view";
 import { Shell } from "@/components/shell";
 
@@ -18,7 +23,12 @@ export default async function ParametresPage() {
   if (!user) redirect("/connexion");
 
   const artist = await getArtistByUser(user.id);
-  const payout = artist ? await getPayoutSettings(artist.id, user.id) : null;
+  const [payout, balance] = artist
+    ? await Promise.all([
+        getPayoutSettings(artist.id, user.id),
+        getBalance(artist.id),
+      ])
+    : [null, null];
 
   return (
     <Shell>
@@ -26,6 +36,7 @@ export default async function ParametresPage() {
         email={user.email ?? ""}
         artist={artist}
         payout={payout}
+        balance={balance}
         avatarUrl={imageUrl(
           (user.user_metadata as { avatar_key?: string } | null)?.avatar_key,
         )}

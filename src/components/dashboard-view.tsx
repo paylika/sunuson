@@ -13,6 +13,7 @@ import {
 } from "@/lib/config";
 import {
   deleteTrack,
+  deplacerMorceau,
   requestPayout,
   updateArtistImage,
   updateArtistProfile,
@@ -37,7 +38,7 @@ import {
   SectionTitle,
   Stat,
 } from "./ui";
-import { Check, Close, Copy, Lock, Plus, Share, Wallet } from "./icons";
+import { Check, Close, Copy, Lock, Plus, Share, Spark } from "./icons";
 
 type Vue = "artiste" | "fan";
 
@@ -91,12 +92,7 @@ export function DashboardView({
           />
         </div>
       ) : (
-        <AtelierView
-          artist={artist}
-          tracks={tracks}
-          supports={supports}
-          balance={balance}
-        />
+        <AtelierView artist={artist} tracks={tracks} supports={supports} />
       )}
     </>
   );
@@ -108,12 +104,10 @@ function AtelierView({
   artist,
   tracks,
   supports,
-  balance,
 }: {
   artist: Artist;
   tracks: Track[];
   supports: Support[];
-  balance: Balance;
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -171,59 +165,6 @@ function AtelierView({
   return (
     <>
       <ApercuPage artist={artist} />
-
-      {/* ---------------------------------------------------------- solde */}
-      <section className="mt-4 rise">
-        {/* Seul écran qui garde un aplat vif : c'est le moment de
-            récompense. Sur l'accent acide, tout le contenu passe en encre
-            sombre — du blanc y serait illisible. */}
-        <div className="relative overflow-hidden rounded-[30px] grad-brand p-5 text-ink glow-brand">
-          <div className="relative">
-            <div className="flex items-center gap-2 text-[12px] font-medium text-ink/65">
-              <Wallet size={15} />
-              Disponible au retrait
-            </div>
-            <div className="display mt-2 text-[46px] font-extrabold tabular-nums">
-              {fcfa(balance.available, false)}
-              <span className="ml-2 text-[15px] font-semibold opacity-55">
-                FCFA
-              </span>
-            </div>
-            <div className="mt-1.5 text-[11.5px] font-medium text-ink/60">
-              {fcfa(balance.gross)} reçus · commission{" "}
-              {Math.round(COMMISSION_RATE * 100)} % déduite
-            </div>
-
-            <button
-              onClick={() =>
-                startTransition(async () => {
-                  await requestPayout(artist.id, balance.available);
-                  router.refresh();
-                })
-              }
-              disabled={balance.available < MIN_PAYOUT || pending}
-              className="mt-4 h-12 w-full rounded-full bg-ink text-[15px] font-semibold text-fg transition active:scale-[.98] disabled:opacity-40 disabled:active:scale-100"
-            >
-              {pending
-                ? "Demande en cours…"
-                : balance.available < MIN_PAYOUT
-                  ? `Minimum ${fcfa(MIN_PAYOUT)}`
-                  : "Retirer sur Wave"}
-            </button>
-
-            <div className="mt-3 flex gap-1.5">
-              {PAYMENT_METHODS.map((m) => (
-                <span
-                  key={m.id}
-                  className="rounded-full bg-ink/12 px-2.5 py-1 text-[10px] font-semibold text-ink/70"
-                >
-                  {m.label}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* ----------------------------------------------------------- lien */}
       <section className="mt-3.5">
@@ -308,53 +249,49 @@ function AtelierView({
         <SectionTitle right={<Pill tone="glass">{tracks.length}</Pill>}>
           Mes sons
         </SectionTitle>
-        <Glass className="overflow-hidden rounded-[26px]">
-          <div className="divide-y divide-fg/[.06]">
-            {tracks.map((t) => (
-              <div key={t.id} className="flex items-center gap-3 px-3.5 py-3">
-                <Cover
-                  gradient={artist.gradient}
-                  src={t.coverUrl}
-                  alt={t.title}
-                  rounded="rounded-xl"
-                  className="h-11 w-11 shrink-0"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[14px] font-semibold">
-                    {t.title}
-                  </div>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px] text-fg/40">
-                    <span>
-                      {t.duration > 0 ? duration(t.duration) : "durée inconnue"}
+
+        {tracks.length === 0 ? (
+          <Glass className="rounded-[26px] px-5 py-8 text-center">
+            <p className="text-[13px] text-fg/50">Aucun son publié.</p>
+            <p className="mt-1.5 text-[11.5px] text-fg/35">
+              Ta page attend son premier morceau.
+            </p>
+          </Glass>
+        ) : (
+          <div className="space-y-3">
+            {grouperParProjet(tracks).map((groupe) => (
+              <Glass
+                key={groupe.cle}
+                className="overflow-hidden rounded-[26px]"
+              >
+                {/* Un projet porte son nom au-dessus de ses morceaux : sans
+                    ça, un album de dix titres se lit comme dix singles. */}
+                {groupe.projet && (
+                  <div className="flex items-center justify-between border-b border-fg/[.06] px-4 py-2.5">
+                    <span className="truncate text-[12.5px] font-bold">
+                      {groupe.projet}
                     </span>
-                    {t.label && (
-                      <>
-                        <span>·</span>
-                        <span>{t.label}</span>
-                      </>
-                    )}
-                    {!t.audioUrl && (
-                      <>
-                        <span>·</span>
-                        <span className="text-gold-700">fichier manquant</span>
-                      </>
-                    )}
+                    <span className="shrink-0 rounded-full bg-fg/[.07] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg/45">
+                      {groupe.type}
+                    </span>
                   </div>
-                </div>
-                {t.locked && (
-                  <span className="flex shrink-0 items-center gap-1 rounded-full bg-gold-400/15 px-2.5 py-1 text-[10px] font-semibold text-gold-700">
-                    <Lock size={11} />
-                    {t.supportMode === "fixe" && t.supportAmount
-                      ? fcfa(t.supportAmount, false)
-                      : "Inédit"}
-                  </span>
                 )}
 
-                <SupprimerMorceau trackId={t.id} artistSlug={artist.slug} />
-              </div>
+                <div className="divide-y divide-fg/[.06]">
+                  {groupe.morceaux.map((t) => (
+                    <LigneMorceau
+                      key={t.id}
+                      track={t}
+                      artist={artist}
+                      premier={t.id === tracks[0].id}
+                      dernier={t.id === tracks[tracks.length - 1].id}
+                    />
+                  ))}
+                </div>
+              </Glass>
             ))}
           </div>
-        </Glass>
+        )}
       </section>
 
       {/* ------------------------------------------------------- soutiens */}
@@ -394,6 +331,136 @@ function AtelierView({
 
       <MesSoutiens supports={supports} />
     </>
+  );
+}
+
+/* ------------------------------------------------------------ mes sons */
+
+const LIBELLE: Record<string, string> = {
+  ep: "EP",
+  mixtape: "Mixtape",
+  album: "Album",
+};
+
+/**
+ * Regroupe les morceaux consécutifs d'un même projet.
+ *
+ * Consécutifs, et pas « tous ceux qui partagent l'identifiant » : la liste est
+ * ordonnée par l'artiste, et il doit pouvoir intercaler un single au milieu
+ * de son album s'il le veut. On suit son ordre, on ne le corrige pas.
+ */
+function grouperParProjet(tracks: Track[]) {
+  const groupes: {
+    cle: string;
+    projet?: string;
+    type?: string;
+    morceaux: Track[];
+  }[] = [];
+
+  for (const t of tracks) {
+    const dernier = groupes[groupes.length - 1];
+    const meme =
+      dernier &&
+      t.releaseId !== undefined &&
+      dernier.cle === t.releaseId;
+
+    if (meme) {
+      dernier.morceaux.push(t);
+      continue;
+    }
+
+    groupes.push({
+      cle: t.releaseId ?? `single-${t.id}`,
+      projet: t.releaseId ? t.releaseTitle : undefined,
+      type: t.releaseType ? LIBELLE[t.releaseType] : undefined,
+      morceaux: [t],
+    });
+  }
+
+  return groupes;
+}
+
+/** Une ligne de la liste : le morceau, son rang, et de quoi le retirer. */
+function LigneMorceau({
+  track,
+  artist,
+  premier,
+  dernier,
+}: {
+  track: Track;
+  artist: Artist;
+  premier: boolean;
+  dernier: boolean;
+}) {
+  const router = useRouter();
+  const [envoi, demarrer] = useTransition();
+
+  function bouger(sens: -1 | 1) {
+    demarrer(async () => {
+      await deplacerMorceau({ trackId: track.id, sens });
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="flex items-center gap-3 px-3.5 py-3">
+      <Cover
+        gradient={artist.gradient}
+        src={track.coverUrl}
+        alt={track.title}
+        rounded="rounded-xl"
+        className="h-11 w-11 shrink-0"
+      />
+
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[14px] font-semibold">{track.title}</div>
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px] text-fg/40">
+          <span>
+            {track.duration > 0 ? duration(track.duration) : "durée inconnue"}
+          </span>
+          {!track.audioUrl && (
+            <>
+              <span>·</span>
+              <span className="text-gold-700">fichier manquant</span>
+            </>
+          )}
+          {track.locked && (
+            <>
+              <span>·</span>
+              <span className="text-gold-700">
+                {track.supportMode === "fixe" && track.supportAmount
+                  ? fcfa(track.supportAmount, false)
+                  : "Inédit"}
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Deux flèches plutôt qu'un glisser-déposer : attraper une ligne au
+          pouce entre dix autres demande une précision que personne n'a, et le
+          geste se bat avec le défilement de la page. */}
+      <div className="flex shrink-0 flex-col">
+        <button
+          onClick={() => bouger(-1)}
+          disabled={premier || envoi}
+          aria-label="Monter"
+          className="px-1.5 text-[11px] text-fg/30 disabled:opacity-20"
+        >
+          ▲
+        </button>
+        <button
+          onClick={() => bouger(1)}
+          disabled={dernier || envoi}
+          aria-label="Descendre"
+          className="px-1.5 text-[11px] text-fg/30 disabled:opacity-20"
+        >
+          ▼
+        </button>
+      </div>
+
+      <SupprimerMorceau trackId={track.id} artistSlug={artist.slug} />
+    </div>
   );
 }
 
@@ -520,7 +587,26 @@ function SupprimerMorceau({
  */
 function MesSoutiens({ supports }: { supports: Support[] }) {
   const gens = grouperSoutiens(supports);
-  if (gens.length === 0) return null;
+
+  // Une section qui s'efface quand elle est vide se lit comme une panne : on
+  // ne sait pas si personne n'a soutenu ou si l'écran est cassé. C'est
+  // d'autant plus vrai ici que c'est la liste la plus attendue de l'atelier.
+  if (gens.length === 0) {
+    return (
+      <section className="mt-8">
+        <SectionTitle>Qui te soutient</SectionTitle>
+        <Glass className="rounded-[26px] px-5 py-8 text-center">
+          <Spark size={22} className="mx-auto text-fg/20" />
+          <p className="mt-3 text-[13px] leading-relaxed text-fg/50">
+            Personne ne t&apos;a encore soutenu.
+          </p>
+          <p className="mt-1.5 text-[11.5px] leading-relaxed text-fg/35">
+            Partage ton lien : c&apos;est lui qui travaille pour toi.
+          </p>
+        </Glass>
+      </section>
+    );
+  }
 
   const fideles = gens.filter((g) => g.nombre > 1).length;
 
