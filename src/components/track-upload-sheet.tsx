@@ -50,6 +50,11 @@ export function TrackUploadSheet({
   const [typeProjet, setTypeProjet] = useState<TypeProjet>("ep");
   const [pistes, setPistes] = useState<Piste[]>([]);
   const [etape, setEtape] = useState<string | null>(null);
+  const [progres, setProgres] = useState(0);
+  const [echoue, setEchoue] = useState(false);
+  // Ce qui est déjà monté survit à un échec : sur une connexion qui coupe,
+  // réessayer ne doit pas tout renvoyer depuis le début.
+  const deposesRef = useRef<Map<string, string>>(new Map());
 
   const [title, setTitle] = useState("");
   const [label, setLabel] = useState(artist.label ?? "");
@@ -127,31 +132,42 @@ export function TrackUploadSheet({
   function submit() {
     setError(null);
     setEtape(null);
+    setEchoue(false);
 
     startTransition(async () => {
       try {
       // La pochette part d'abord : elle est commune à tout le projet, et
       // échouer dessus après avoir monté dix morceaux serait cruel.
-      let coverKey: string | undefined;
-      if (cover) {
-        setEtape("Envoi de la pochette…");
-        const dep = await deposer(artist.id, "cover", cover);
+      const total = (cover ? 1 : 0) + (format === "single" ? 1 : pistes.length);
+      let faits = 0;
+      const avancer = (f: number) => setProgres((faits + f) / total);
+
+      let coverKey = deposesRef.current.get("cover");
+      if (cover && !coverKey) {
+        setEtape("Pochette");
+        const dep = await deposer(artist.id, "cover", cover, avancer);
         if (!dep.ok) {
-          setError(dep.error);
-          setEtape(null);
+          echec(dep.error);
           return;
         }
         coverKey = dep.key;
+        deposesRef.current.set("cover", coverKey);
       }
+      if (cover) faits += 1;
 
       if (format === "single") {
-        setEtape("Envoi du son…");
-        const dep = await deposer(artist.id, "audio", audio!);
-        if (!dep.ok) {
-          setError(dep.error);
-          setEtape(null);
-          return;
+        setEtape(title.trim() || "Ton son");
+        let audioKey = deposesRef.current.get("audio");
+        if (!audioKey) {
+          const dep = await deposer(artist.id, "audio", audio!, avancer);
+          if (!dep.ok) {
+            echec(dep.error);
+            return;
+          }
+          audioKey = dep.key;
+          deposesRef.current.set("audio", audioKey);
         }
+        const dep = { key: audioKey };
 
         const fd = new FormData();
         fd.set("artistId", artist.id);
@@ -178,8 +194,7 @@ export function TrackUploadSheet({
 
         const res = await createTrack(fd);
         if (!res.ok) {
-          setError(res.error);
-          setEtape(null);
+          echec(res.error);
           return;
         }
       } else {
@@ -191,22 +206,28 @@ export function TrackUploadSheet({
 
         for (let i = 0; i < pistes.length; i++) {
           const p = pistes[i];
-          setEtape(`Envoi ${i + 1} / ${pistes.length} — ${p.titre}`);
+          setEtape(`${i + 1}/${pistes.length} · ${p.titre}`);
 
-          const dep = await deposer(artist.id, "audio", p.file);
-          if (!dep.ok) {
-            setError(`${p.titre} : ${dep.error}`);
-            setEtape(null);
-            return;
+          let cle = deposesRef.current.get(p.id);
+          if (!cle) {
+            const dep = await deposer(artist.id, "audio", p.file, avancer);
+            if (!dep.ok) {
+              echec(`${p.titre} — ${dep.error}`);
+              return;
+            }
+            cle = dep.key;
+            deposesRef.current.set(p.id, cle);
           }
+          faits += 1;
+
           deposes.push({
             title: p.titre,
-            audioKey: dep.key,
+            audioKey: cle,
             duration: p.duree,
           });
         }
 
-        setEtape("Publication…");
+        setEtape("Finalisation");
         const res = await createRelease({
           artistId: artist.id,
           artistSlug: artist.slug,
@@ -222,28 +243,34 @@ export function TrackUploadSheet({
         });
 
         if (!res.ok) {
-          setError(res.error);
-          setEtape(null);
+          echec(res.error);
           return;
         }
       }
 
       setEtape(null);
+      setProgres(0);
+      deposesRef.current.clear();
       router.refresh();
       onClose();
       } catch (e) {
         // Sans ce filet, une exception du serveur remplace toute la page par
         // « Application error », qui n'apprend rien à l'artiste et rien à
-        // nous non plus. Ici, au moins, le message reste lisible et le
-        // formulaire rempli.
-        setEtape(null);
-        setError(
+        // nous non plus. Ici, au moins, le message reste lisible et ce qui
+        // est déjà monté n'est pas perdu.
+        echec(
           e instanceof Error && e.message
-            ? `Publication impossible : ${e.message}`
+            ? e.message
             : "Publication impossible. Réessaie dans un instant.",
         );
       }
     });
+  }
+
+  function echec(message: string) {
+    setError(message);
+    setEtape(null);
+    setEchoue(true);
   }
 
   /** Ajoute des fichiers à la liste du projet, en lisant leur durée. */
@@ -266,6 +293,27 @@ export function TrackUploadSheet({
       const d = await readAudioDuration(n.file);
       setPistes((p) => p.map((x) => (x.id === n.id ? { ...x, duree: d } : x)));
     }
+  }
+
+  // Pendant l'envoi, l'écran plein s'efface au profit d'un simple bandeau :
+  // l'artiste retrouve son atelier et voit sa publication avancer en bas.
+  // Rester bloqué sur un formulaire figé pendant qu'un projet monte, c'est
+  // long, et rien ne dit que ça travaille.
+  if (pending || echoue) {
+    return (
+      <BandeauPublication
+        progres={progres}
+        etape={etape}
+        erreur={echoue ? error : null}
+        onReessayer={submit}
+        onAbandonner={() => {
+          setEchoue(false);
+          setError(null);
+          setProgres(0);
+          deposesRef.current.clear();
+        }}
+      />
+    );
   }
 
   return (
@@ -667,6 +715,84 @@ export function TrackUploadSheet({
  * « Sama Xol ». C'est juste neuf fois sur dix, et corriger un mot est bien
  * plus rapide que saisir dix titres.
  */
+/**
+ * Bandeau de publication, posé au-dessus de la barre de navigation.
+ *
+ * Le pourcentage vient des octets réellement partis, pas d'un compteur de
+ * fichiers : sur un projet, un morceau sur dix passerait de 0 à 10 % d'un
+ * coup, ce qui ressemble à une barre bloquée.
+ */
+function BandeauPublication({
+  progres,
+  etape,
+  erreur,
+  onReessayer,
+  onAbandonner,
+}: {
+  progres: number;
+  etape: string | null;
+  erreur: string | null;
+  onReessayer: () => void;
+  onAbandonner: () => void;
+}) {
+  const pourcent = Math.min(99, Math.round(progres * 100));
+
+  return (
+    <div className="fixed inset-x-0 bottom-28 z-50 mx-auto w-full max-w-[480px] px-4">
+      <div className="glass-strong overflow-hidden rounded-[24px] p-4 shadow-[0_20px_50px_-20px_rgba(0,0,0,.9)]">
+        {erreur ? (
+          <>
+            <div className="text-[13.5px] font-bold text-red-400">
+              Publication interrompue
+            </div>
+            <p className="mt-1 text-[12px] leading-snug text-fg/55">{erreur}</p>
+            {/* Ce qui est déjà monté est conservé : réessayer reprend là où
+                ça s'est arrêté plutôt que de tout renvoyer. */}
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={onAbandonner}
+                className="h-11 flex-1 rounded-full bg-fg/[.07] text-[13px] font-semibold text-fg/60 transition active:scale-[.98]"
+              >
+                Abandonner
+              </button>
+              <button
+                onClick={onReessayer}
+                className="h-11 flex-1 rounded-full grad-brand text-[13px] font-bold text-ink transition active:scale-[.98]"
+              >
+                Réessayer
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="min-w-0 truncate text-[13.5px] font-semibold">
+                Publication · {etape ?? "en cours"}
+              </span>
+              <span className="shrink-0 text-[13px] font-bold tabular-nums text-acid-500">
+                {pourcent} %
+              </span>
+            </div>
+
+            <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-fg/[.08]">
+              <div
+                className="h-full rounded-full grad-brand transition-[width] duration-300"
+                style={{ width: `${Math.max(3, pourcent)}%` }}
+              />
+            </div>
+
+            {/* On ne promet pas de survivre à un changement de page : quitter
+                l'atelier démonte le composant et coupe l'envoi. */}
+            <p className="mt-2 text-[11px] text-fg/35">
+              Reste sur cette page jusqu&apos;à la fin.
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const LIBELLE_PROJET: Record<TypeProjet, string> = {
   ep: "mon EP",
   mixtape: "ma mixtape",

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { trackSupporters } from "@/lib/actions";
 import type { TrackSupporter } from "@/lib/queries";
 import { duration, initials } from "@/lib/format";
+import { ambianceDe, type Ambiance } from "@/lib/couleur";
 import { usePlayer, useUnlock } from "./providers";
 import { PlaylistButton } from "./playlist-button";
 import { SupportSheet } from "./support-sheet";
@@ -47,10 +48,32 @@ export function PlayerSheet() {
   const { isUnlocked } = useUnlock();
 
   const [supporters, setSupporters] = useState<TrackSupporter[]>([]);
+
+  // Repli neutre plutôt que le dégradé de l'artiste : tant que la pochette
+  // n'est pas lue, mieux vaut un fond sombre discret qu'une couleur qui sera
+  // peut-être démentie une seconde plus tard.
+  const [ambiance, setAmbiance] = useState<Ambiance>(["#26282e", "#101115"]);
   const [loading, setLoading] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const trackId = track?.id;
+
+  // La pochette du morceau d'abord, celle de l'artiste ensuite : c'est le
+  // visuel affiché à l'écran qui doit décider de la couleur, pas un autre.
+  const pochette = track?.coverUrl ?? artist?.coverUrl ?? artist?.avatarUrl;
+
+  useEffect(() => {
+    if (!expanded || !pochette) return;
+    let annule = false;
+
+    void ambianceDe(pochette).then((a) => {
+      if (!annule && a) setAmbiance(a);
+    });
+
+    return () => {
+      annule = true;
+    };
+  }, [expanded, pochette]);
 
   useEffect(() => {
     if (!expanded || !trackId) return;
@@ -104,11 +127,13 @@ export function PlayerSheet() {
 
   return (
     <div className="fixed inset-0 z-50 bg-bg fade">
-      {/* Nappe colorée tirée de la pochette : l'écran prend la couleur du son. */}
+      {/* Nappe tirée des pixels de la pochette, plus du dégradé stocké de
+          l'artiste : sur une pochette en noir et blanc, celui-ci teintait de
+          violet une image qui n'a aucune couleur. */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-45"
+        className="pointer-events-none absolute inset-0 opacity-45 transition-[background-image] duration-700"
         style={{
-          backgroundImage: `radial-gradient(75% 45% at 50% 0%, ${artist.gradient[0]}, transparent 70%), radial-gradient(70% 40% at 50% 100%, ${artist.gradient[1]}, transparent 70%)`,
+          backgroundImage: `radial-gradient(75% 45% at 50% 0%, ${ambiance[0]}, transparent 70%), radial-gradient(70% 40% at 50% 100%, ${ambiance[1]}, transparent 70%)`,
         }}
       />
 
