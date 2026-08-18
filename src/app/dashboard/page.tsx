@@ -32,14 +32,17 @@ export default async function EspacePage() {
   if (!artist) {
     // La photo du fan vit dans les métadonnées du compte : rien à stocker
     // ailleurs pour un seul champ.
-    const avatarKey = (user.user_metadata as { avatar_key?: string } | null)
-      ?.avatar_key;
+    const meta = user.user_metadata as {
+      avatar_key?: string;
+      display_name?: string;
+    } | null;
 
     return (
       <Shell>
         <EspaceFan
           email={user.email ?? ""}
-          avatarUrl={imageUrl(avatarKey)}
+          nom={meta?.display_name}
+          avatarUrl={imageUrl(meta?.avatar_key)}
         />
       </Shell>
     );

@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
-import { createArtistProfile, updateFanAvatar } from "@/lib/actions";
+import {
+  createArtistProfile,
+  updateFanAvatar,
+  updateFanName,
+} from "@/lib/actions";
 import { APP_DOMAIN } from "@/lib/config";
 import { usePlaylist } from "./providers";
 import { Avatar, Button, cx, Glass } from "./ui";
@@ -102,9 +106,12 @@ export function EspaceInvite() {
  */
 export function EspaceFan({
   email,
+  nom,
   avatarUrl,
 }: {
   email: string;
+  /** Nom choisi par le fan. Vide tant qu'il ne l'a pas défini. */
+  nom?: string;
   avatarUrl?: string;
 }) {
   const { ids, ready } = usePlaylist();
@@ -117,13 +124,12 @@ export function EspaceFan({
           photo se voyait à peine, et personne ne prend la peine d'en choisir
           une pour un timbre-poste. */}
       <section className="flex flex-col items-center pb-2 pt-3">
-        <PhotoFan email={email} avatarUrl={avatarUrl} />
+        <PhotoFan email={email} nom={nom} avatarUrl={avatarUrl} />
 
-        <p className="mt-4 max-w-full truncate text-[15.5px] font-semibold">
+        <NomFan nom={nom} email={email} />
+
+        <p className="mt-1.5 max-w-full truncate text-[11.5px] text-fg/35">
           {email}
-        </p>
-        <p className="mt-1 text-[12px] text-fg/40">
-          Compte fan · tu peux soutenir qui tu veux
         </p>
       </section>
 
@@ -161,9 +167,11 @@ export function EspaceFan({
  */
 function PhotoFan({
   email,
+  nom,
   avatarUrl,
 }: {
   email: string;
+  nom?: string;
   avatarUrl?: string;
 }) {
   const router = useRouter();
@@ -171,9 +179,9 @@ function PhotoFan({
   const [erreur, setErreur] = useState<string | null>(null);
   const [envoi, setEnvoi] = useState(false);
 
-  // L'adresse sert de nom faute de mieux : « adbaecomx@gmail.com » donne AD,
-  // ce qui reste personnel là où une icône générique ne l'est pas.
-  const nom = email.split("@")[0] || "fan";
+  // Initiales du nom choisi, sinon de l'adresse : « adbaecomx@gmail.com »
+  // donne AD, ce qui reste personnel là où une icône générique ne l'est pas.
+  const pourInitiales = nom?.trim() || email.split("@")[0] || "fan";
 
   async function envoyer(file: File) {
     setErreur(null);
@@ -191,7 +199,7 @@ function PhotoFan({
   return (
     <div className="relative">
       <Avatar
-        name={nom}
+        name={pourInitiales}
         gradient={["#2a2d34", "#141619"]}
         src={avatarUrl}
         size={104}
@@ -232,6 +240,120 @@ function PhotoFan({
         </p>
       )}
     </div>
+  );
+}
+
+/* -------------------------------------------------------------- le nom */
+
+/**
+ * Nom d'affichage du fan.
+ *
+ * Avant, c'est l'adresse électronique qui tenait lieu d'identité. Personne ne
+ * veut voir son courriel sous un soutien public, et c'est bien ce nom-ci qui
+ * s'affichera là le jour où les soutiens seront rattachés aux comptes.
+ */
+function NomFan({ nom, email }: { nom?: string; email: string }) {
+  const router = useRouter();
+  const [edition, setEdition] = useState(false);
+  const [valeur, setValeur] = useState(nom ?? "");
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [envoi, demarrer] = useTransition();
+
+  function enregistrer() {
+    setErreur(null);
+    demarrer(async () => {
+      const res = await updateFanName(valeur);
+      if (!res.ok) {
+        setErreur(res.error);
+        return;
+      }
+      setEdition(false);
+      router.refresh();
+    });
+  }
+
+  if (!edition) {
+    return (
+      <button
+        onClick={() => {
+          setValeur(nom ?? "");
+          setEdition(true);
+        }}
+        className="mt-4 flex max-w-full items-center gap-2 transition active:scale-95"
+      >
+        <span
+          className={cx(
+            "display truncate text-[24px] font-extrabold",
+            !nom && "text-fg/35",
+          )}
+        >
+          {nom || "Ajoute ton nom"}
+        </span>
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-fg/[.08] text-fg/50">
+          <Crayon />
+        </span>
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-4 w-full">
+      <input
+        value={valeur}
+        onChange={(e) => setValeur(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") enregistrer();
+          if (e.key === "Escape") setEdition(false);
+        }}
+        autoFocus
+        maxLength={28}
+        placeholder="Ton nom"
+        className="h-13 w-full rounded-2xl glass px-5 text-center text-[17px] font-semibold outline-none placeholder:text-fg/25 focus:border-acid-500/40"
+      />
+
+      {erreur && (
+        <p className="mt-2 text-center text-[11.5px] text-red-400">{erreur}</p>
+      )}
+
+      <div className="mt-2 flex gap-2">
+        <button
+          onClick={() => setEdition(false)}
+          className="h-11 flex-1 rounded-full bg-fg/[.07] text-[13.5px] font-semibold text-fg/60 transition active:scale-[.98]"
+        >
+          Annuler
+        </button>
+        <button
+          onClick={enregistrer}
+          disabled={envoi || valeur.trim().length < 2}
+          className={cx(
+            "h-11 flex-1 rounded-full text-[13.5px] font-bold transition active:scale-[.98]",
+            valeur.trim().length >= 2 && !envoi
+              ? "grad-brand text-ink"
+              : "bg-fg/8 text-fg/25 active:scale-100",
+          )}
+        >
+          {envoi ? "…" : "Enregistrer"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Petit crayon, dessiné ici : il ne sert qu'à cet endroit. */
+function Crayon() {
+  return (
+    <svg
+      width={13}
+      height={13}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 20.5h4L20 8.5a2.6 2.6 0 0 0-3.7-3.7L4.3 16.8v3.7Z" />
+    </svg>
   );
 }
 

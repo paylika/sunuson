@@ -536,6 +536,36 @@ function revalidateAll(artistSlug?: string) {
 }
 
 /**
+ * Nom d'affichage d'un compte fan.
+ *
+ * Sans lui, un fan n'est qu'une adresse électronique — et c'est cette adresse
+ * qui s'afficherait partout où il apparaît. Personne ne veut voir son courriel
+ * exposé sous un soutien public.
+ */
+export async function updateFanName(name: string): Promise<ActionResult> {
+  const user = await currentUser();
+  if (!user) return { ok: false, error: "Connecte-toi d'abord." };
+
+  // Même longueur que supporter_name : c'est le même nom qui s'affichera un
+  // jour sous les soutiens, il ne doit pas casser la mise en page.
+  const propre = (name || "").trim().replace(/\s+/g, " ").slice(0, 28);
+  if (propre.length < 2) {
+    return { ok: false, error: "Ton nom fait au moins 2 lettres." };
+  }
+
+  const supabase = await supabaseSession();
+  const { error } = await supabase.auth.updateUser({
+    data: { display_name: propre },
+  });
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/dashboard");
+  revalidatePath("/parametres");
+  return { ok: true };
+}
+
+/**
  * Photo de profil d'un compte fan.
  *
  * Elle vit dans les métadonnées du compte Supabase, pas dans une table à

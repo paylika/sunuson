@@ -29,6 +29,9 @@ export default async function ParametresPage() {
         avatarUrl={imageUrl(
           (user.user_metadata as { avatar_key?: string } | null)?.avatar_key,
         )}
+        nom={
+          (user.user_metadata as { display_name?: string } | null)?.display_name
+        }
       />
     </Shell>
   );

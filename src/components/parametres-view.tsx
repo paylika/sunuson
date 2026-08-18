@@ -33,12 +33,15 @@ export function ParametresView({
   artist,
   payout,
   avatarUrl,
+  nom,
 }: {
   email: string;
   artist: Artist | null;
   payout: Payout | null;
   /** Photo du compte fan. L'artiste, lui, a déjà la sienne sur sa page. */
   avatarUrl?: string;
+  /** Nom choisi par le fan. */
+  nom?: string;
 }) {
   return (
     <>
@@ -60,16 +63,18 @@ export function ParametresView({
             />
           ) : (
             <Avatar
-              name={email.split("@")[0] || "fan"}
+              name={nom || email.split("@")[0] || "fan"}
               gradient={["#2a2d34", "#141619"]}
               src={avatarUrl}
               size={44}
             />
           )}
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[14.5px] font-semibold">{email}</div>
-            <div className="mt-0.5 text-[11.5px] text-fg/40">
-              {artist ? "Compte artiste" : "Compte fan"}
+            <div className="truncate text-[14.5px] font-semibold">
+              {artist ? artist.name : nom || email}
+            </div>
+            <div className="mt-0.5 truncate text-[11.5px] text-fg/40">
+              {artist ? "Compte artiste" : `Compte fan · ${email}`}
             </div>
           </div>
         </Glass>
