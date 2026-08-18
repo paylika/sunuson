@@ -23,11 +23,15 @@ export function SupportSheet({
   artist,
   track,
   positionSec,
+  nomParDefaut,
   open,
   onClose,
 }: {
   artist: Artist;
   track?: Track;
+  /** Nom du fan connecté. Il ne retape pas son nom à chaque soutien, mais
+      reste libre de le corriger — on soutient parfois pour quelqu'un. */
+  nomParDefaut?: string;
   /** Seconde du morceau en cours, quand le soutien part de l'écran de
       lecture. C'est elle qui épingle le fan sur la forme d'onde. */
   positionSec?: number;
@@ -40,7 +44,7 @@ export function SupportSheet({
   const [step, setStep] = useState<Step>("montant");
   const [amount, setAmount] = useState<number>(2000);
   const [custom, setCustom] = useState("");
-  const [name, setName] = useState("");
+  const [name, setName] = useState(nomParDefaut ?? "");
   const [message, setMessage] = useState("");
   const [method, setMethod] = useState<PaymentMethod>("wave");
   const [pending, setPending] = useState(false);

@@ -17,11 +17,14 @@ export function ArtistView({
   artist,
   tracks,
   supports,
+  nomDuFan,
 }: {
   artist: Artist;
   tracks: Track[];
   /** Soutiens confirmés, chargés côté serveur. */
   supports: Support[];
+  /** Nom du visiteur connecté, s'il en a choisi un. */
+  nomDuFan?: string;
 }) {
   const [tab, setTab] = useState<Tab>("sons");
   const [sheet, setSheet] = useState<{ open: boolean; track?: Track }>({
@@ -253,6 +256,7 @@ export function ArtistView({
       <SupportSheet
         artist={artist}
         track={sheet.track}
+        nomParDefaut={nomDuFan}
         open={sheet.open}
         onClose={() => setSheet({ open: false })}
       />

@@ -74,6 +74,11 @@ export async function createSupport(input: {
     }
   }
 
+  // Le compte, s'il y en a un. Un soutien anonyme reste parfaitement valable :
+  // exiger une inscription avant de laisser envoyer 1 000 FCFA ferait perdre
+  // l'essentiel des soutiens.
+  const user = await currentUser().catch(() => null);
+
   const supporterName =
     (input.supporterName || "").trim().slice(0, 28) || "Anonyme";
   const message = (input.message || "").trim().slice(0, 120) || null;
@@ -90,6 +95,7 @@ export async function createSupport(input: {
       message,
       method: input.method,
       status: "pending",
+      user_id: user?.id ?? null,
       provider_ref: `demo_${crypto.randomUUID()}`,
       position_sec:
         input.trackId && Number.isFinite(input.positionSec)

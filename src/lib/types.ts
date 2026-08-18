@@ -86,6 +86,8 @@ export type Support = {
   trackId?: string;
   /** Nom affiché publiquement sur le mur. */
   supporterName: string;
+  /** Compte du fan, absent si le soutien a été envoyé sans être connecté. */
+  userId?: string;
   amount: number;
   message?: string;
   method: PaymentMethod;

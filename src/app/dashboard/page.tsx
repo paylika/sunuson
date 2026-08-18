@@ -2,6 +2,7 @@ import { viewer } from "@/lib/auth";
 import {
   getBalance,
   getSupportsByArtist,
+  getSupportsByUser,
   getTracksByArtist,
   imageUrl,
 } from "@/lib/queries";
@@ -37,12 +38,15 @@ export default async function EspacePage() {
       display_name?: string;
     } | null;
 
+    const soutiens = await getSupportsByUser(user.id);
+
     return (
       <Shell>
         <EspaceFan
           email={user.email ?? ""}
           nom={meta?.display_name}
           avatarUrl={imageUrl(meta?.avatar_key)}
+          soutiens={soutiens}
         />
       </Shell>
     );

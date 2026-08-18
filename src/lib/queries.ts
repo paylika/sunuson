@@ -168,6 +168,7 @@ type SupportRow = {
   id: string;
   artist_id: string;
   track_id: string | null;
+  user_id?: string | null;
   supporter_name: string;
   amount: number;
   message: string | null;
@@ -178,11 +179,17 @@ type SupportRow = {
 const SUPPORT_COLS =
   "id, artist_id, track_id, supporter_name, amount, message, method, created_at";
 
+// `user_id` arrive par la migration 005. Tant qu'elle n'est pas jouée, la
+// demander ferait échouer TOUTES les lectures de soutiens — donc les murs de
+// soutiens et l'atelier. On la demande à part, avec repli.
+const SUPPORT_COLS_COMPTE = `${SUPPORT_COLS}, user_id`;
+
 function toSupport(r: SupportRow): Support {
   return {
     id: r.id,
     artistId: r.artist_id,
     trackId: r.track_id ?? undefined,
+    userId: r.user_id ?? undefined,
     supporterName: r.supporter_name,
     amount: r.amount,
     message: r.message ?? undefined,
@@ -372,17 +379,22 @@ export async function getClipsByArtist(artistId: string): Promise<Clip[]> {
 
 /** Seuls les soutiens confirmés sont visibles : un 'pending' n'existe pas. */
 export async function getSupportsByArtist(artistId: string): Promise<Support[]> {
-  const supabase = client();
-  const rows = unwrap(
-    await supabase
+  const requete = (colonnes: string) =>
+    client()
       .from("supports")
-      .select(SUPPORT_COLS)
+      .select(colonnes)
       .eq("artist_id", artistId)
       .eq("status", "paid")
       .order("created_at", { ascending: false })
-      .returns<SupportRow[]>(),
-  );
-  return rows.map(toSupport);
+      .returns<SupportRow[]>();
+
+  // Avec le compte si la migration 005 est passée, sans lui sinon : un artiste
+  // doit voir ses soutiens dans tous les cas, quitte à ne pas savoir lesquels
+  // viennent d'un compte.
+  let res = await requete(SUPPORT_COLS_COMPTE);
+  if (res.error) res = await requete(SUPPORT_COLS);
+
+  return unwrap(res).map(toSupport);
 }
 
 /**
@@ -536,4 +548,65 @@ export async function getBalance(artistId: string): Promise<Balance> {
       supportCount: 0,
     }
   );
+}
+
+/* ------------------------------------------------------- soutiens du fan */
+
+export type SoutienDuFan = Support & {
+  artistName: string;
+  artistSlug: string;
+  artistGradient: [string, string];
+  artistAvatarUrl?: string;
+  /** En attente de confirmation du paiement. */
+  enAttente: boolean;
+};
+
+type SoutienRow = SupportRow & {
+  status: string;
+  artists: {
+    name: string;
+    slug: string;
+    gradient_from: string;
+    gradient_to: string;
+    avatar_key: string | null;
+  } | null;
+};
+
+/**
+ * Ce qu'un fan a soutenu.
+ *
+ * Les soutiens en attente sont inclus : un paiement en cours qui disparaîtrait
+ * de l'historique donnerait l'impression que l'argent s'est perdu. Ils sont
+ * marqués comme tels plutôt que masqués.
+ */
+export async function getSupportsByUser(
+  userId: string,
+): Promise<SoutienDuFan[]> {
+  const res = await client()
+    .from("supports")
+    .select(
+      `${SUPPORT_COLS_COMPTE}, status, artists(name, slug, gradient_from, gradient_to, avatar_key)`,
+    )
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .returns<SoutienRow[]>();
+
+  // La colonne user_id vient d'une migration : tant qu'elle n'est pas jouée,
+  // un fan voit un historique vide plutôt qu'une page en erreur.
+  if (res.error) {
+    console.warn(`Historique des soutiens indisponible : ${res.error.message}`);
+    return [];
+  }
+
+  return (res.data ?? []).map((r) => ({
+    ...toSupport(r),
+    artistName: r.artists?.name ?? "Artiste",
+    artistSlug: r.artists?.slug ?? "",
+    artistGradient: [
+      r.artists?.gradient_from ?? "#2a2d34",
+      r.artists?.gradient_to ?? "#141619",
+    ],
+    artistAvatarUrl: imageUrl(r.artists?.avatar_key),
+    enAttente: r.status !== "paid",
+  }));
 }

@@ -6,6 +6,7 @@ import {
   getSupportsByArtist,
   getTracksByArtist,
 } from "@/lib/queries";
+import { viewer } from "@/lib/auth";
 import { ArtistView } from "@/components/artist-view";
 import { Shell } from "@/components/shell";
 
@@ -27,14 +28,23 @@ export default async function ArtistPage({ params }: Props) {
   const artist = await getArtistBySlug(slug);
   if (!artist) notFound();
 
-  const [tracks, supports] = await Promise.all([
+  const [tracks, supports, { user }] = await Promise.all([
     getTracksByArtist(artist.id),
     getSupportsByArtist(artist.id),
+    viewer(),
   ]);
+
+  const nomDuFan = (user?.user_metadata as { display_name?: string } | null)
+    ?.display_name;
 
   return (
     <Shell>
-      <ArtistView artist={artist} tracks={tracks} supports={supports} />
+      <ArtistView
+        artist={artist}
+        tracks={tracks}
+        supports={supports}
+        nomDuFan={nomDuFan}
+      />
     </Shell>
   );
 }

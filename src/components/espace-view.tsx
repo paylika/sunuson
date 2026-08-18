@@ -9,6 +9,8 @@ import {
   updateFanName,
 } from "@/lib/actions";
 import { APP_DOMAIN } from "@/lib/config";
+import { fcfa, timeAgo } from "@/lib/format";
+import type { SoutienDuFan } from "@/lib/queries";
 import { usePlaylist } from "./providers";
 import { Avatar, Button, cx, Glass } from "./ui";
 import { MarkTile } from "./logo";
@@ -108,11 +110,13 @@ export function EspaceFan({
   email,
   nom,
   avatarUrl,
+  soutiens = [],
 }: {
   email: string;
   /** Nom choisi par le fan. Vide tant qu'il ne l'a pas défini. */
   nom?: string;
   avatarUrl?: string;
+  soutiens?: SoutienDuFan[];
 }) {
   const { ids, ready } = usePlaylist();
 
@@ -152,8 +156,69 @@ export function EspaceFan({
         </Glass>
       </Link>
 
+      <MesSoutiens soutiens={soutiens} />
+
       <DevenirArtiste />
     </>
+  );
+}
+
+/* ------------------------------------------------------------ historique */
+
+/**
+ * Ce que le fan a soutenu.
+ *
+ * Les montants ne sont visibles que par lui. Ils n'apparaissent nulle part
+ * publiquement — c'est la règle depuis le début : on montre qui a soutenu,
+ * jamais combien.
+ */
+function MesSoutiens({ soutiens }: { soutiens: SoutienDuFan[] }) {
+  if (soutiens.length === 0) return null;
+
+  const total = soutiens
+    .filter((s) => !s.enAttente)
+    .reduce((n, s) => n + s.amount, 0);
+
+  return (
+    <section className="mt-8">
+      <div className="mb-3 flex items-baseline justify-between px-1">
+        <h2 className="display text-[22px] font-extrabold">Mes soutiens</h2>
+        <span className="text-[12px] font-semibold tabular-nums text-acid-500">
+          {fcfa(total)}
+        </span>
+      </div>
+
+      <div className="space-y-2.5">
+        {soutiens.map((s) => (
+          <Link key={s.id} href={`/a/${s.artistSlug}`} className="block">
+            <Glass className="flex items-center gap-3.5 rounded-[24px] px-3.5 py-3 transition active:scale-[.99]">
+              <Avatar
+                name={s.artistName}
+                gradient={s.artistGradient}
+                src={s.artistAvatarUrl}
+                size={44}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[14.5px] font-semibold">
+                  {s.artistName}
+                </div>
+                <div className="mt-0.5 truncate text-[11.5px] text-fg/40">
+                  {s.enAttente ? "Paiement en cours" : timeAgo(s.createdAt)}
+                </div>
+              </div>
+              <span
+                className={cx(
+                  "shrink-0 text-[14px] font-bold tabular-nums",
+                  s.enAttente ? "text-fg/30" : "text-fg/70",
+                )}
+              >
+                {fcfa(s.amount, false)}
+              </span>
+            </Glass>
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 

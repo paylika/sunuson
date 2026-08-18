@@ -18,6 +18,7 @@ import {
 import { compact, duration, fcfa, timeAgo } from "@/lib/format";
 import { PHOTO_RULES } from "@/lib/storage";
 import type { Balance } from "@/lib/queries";
+import { grouperSoutiens } from "@/lib/soutiens";
 import type { Artist, Support, Track } from "@/lib/types";
 import { ArtistView } from "./artist-view";
 import { TrackUploadSheet } from "./track-upload-sheet";
@@ -384,7 +385,84 @@ function AtelierView({
           </div>
         </Glass>
       </section>
+
+      <MesSoutiens supports={supports} />
     </>
+  );
+}
+
+/* ------------------------------------------------------- qui a soutenu */
+
+/**
+ * Les gens qui ont déjà payé, une ligne par personne.
+ *
+ * C'est la liste la plus précieuse pour un rappeur : dans un marché où
+ * l'argent est rare, vingt personnes qui ont donné valent mieux que deux mille
+ * abonnés. Ce sont elles qu'il recontactera le jour où le courriel marchera.
+ *
+ * Les « Derniers soutiens » au-dessus racontent l'activité récente ; celle-ci
+ * raconte la fidélité — un fan qui revient six fois y remonte en tête, alors
+ * qu'il se perdait dans le flux.
+ */
+function MesSoutiens({ supports }: { supports: Support[] }) {
+  const gens = grouperSoutiens(supports);
+  if (gens.length === 0) return null;
+
+  const fideles = gens.filter((g) => g.nombre > 1).length;
+
+  return (
+    <section className="mt-8">
+      <SectionTitle
+        right={
+          fideles > 0 ? (
+            <span className="text-[11.5px] text-fg/40">
+              {fideles} {fideles > 1 ? "reviennent" : "revient"}
+            </span>
+          ) : undefined
+        }
+      >
+        Qui te soutient
+      </SectionTitle>
+
+      <Glass className="overflow-hidden rounded-[26px]">
+        <div className="divide-y divide-fg/[.06]">
+          {gens.slice(0, 20).map((g) => (
+            <div key={g.cle} className="flex items-center gap-3 px-4 py-3.5">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-fg/[.07] text-[12px] font-semibold text-fg/70">
+                {g.nom.slice(0, 2).toUpperCase()}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate text-[13.5px] font-semibold">
+                    {g.nom}
+                  </span>
+                  {g.nombre > 1 && (
+                    <span className="shrink-0 rounded-full bg-acid-500/15 px-2 py-0.5 text-[10px] font-bold text-acid-500">
+                      ×{g.nombre}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-0.5 truncate text-[11px] text-fg/40">
+                  {/* Un soutien anonyme reste anonyme : le dire évite à
+                      l'artiste de croire qu'il pourra le recontacter. */}
+                  {g.identifie ? "A un compte" : "Sans compte"}
+                  {" · "}
+                  {timeAgo(g.dernier)}
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-[13.5px] font-bold tabular-nums text-gold-700">
+                  {fcfa(Math.round(g.total * (1 - COMMISSION_RATE)), false)}
+                </div>
+                <div className="text-[10px] tabular-nums text-fg/30">
+                  sur {fcfa(g.total, false)}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Glass>
+    </section>
   );
 }
 
