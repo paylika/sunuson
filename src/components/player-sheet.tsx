@@ -158,7 +158,7 @@ export function PlayerSheet() {
   // l'écran d'abord. Un lecteur qui emprisonne oblige à un geste de sortie
   // avant chaque geste utile.
   return (
-    <div className="fixed inset-x-0 top-0 bottom-24 z-50 bg-bg fade">
+    <div className="fixed inset-0 z-50 bg-bg fade">
       {/* Nappe tirée des pixels de la pochette, plus du dégradé stocké de
           l'artiste : sur une pochette en noir et blanc, celui-ci teintait de
           violet une image qui n'a aucune couleur. */}
@@ -204,7 +204,7 @@ export function PlayerSheet() {
             posés. Un plancher de 150 px l'empêche d'être écrasée sur un petit
             écran — là, c'est la page qui défile un peu, ce qui vaut mieux
             qu'une vignette illisible. */}
-        <div className="min-h-[186px] flex-1 shrink-0 py-3">
+        <div className="min-h-[138px] flex-1 shrink-0 py-2">
           <PochetteGlissante
             courant={{ track, artist }}
             suivant={queue[index + 1]}
@@ -238,11 +238,38 @@ export function PlayerSheet() {
           />
         </div>
 
+        {/* ------------------------------------------------------- la suite */}
+        <div className="shrink-0">
+        <ADecouvrir
+          items={suggestions}
+          chargement={chargeSuggestions}
+          queue={queue}
+          index={index}
+          goTo={goTo}
+        />
+        </div>
+
+        {/* Le bouton qui rapporte de l'argent est toujours à sa place. */}
+        <div className="shrink-0 pt-2.5">
+          <SupportersStrip supporters={supporters} loading={loading} />
+
+          <button
+            onClick={() => setSheetOpen(true)}
+            className="mt-2.5 flex h-13 w-full items-center justify-center gap-2 rounded-full grad-brand text-[16px] font-semibold text-ink glow-brand transition active:scale-[.98]"
+          >
+            <Spark size={18} />
+            {locked ? "Débloquer ce son" : `Soutenir ${artist.name}`}
+          </button>
+        </div>
+
         {/* --------------------------------------------------------- lecture */}
         {/* Suivant et précédent n'apparaissent que dans une file — ailleurs
             ils n'auraient rien à enchaîner. Favori et répétition, eux, ont
             un sens partout. */}
-        <div className="mt-3.5 flex shrink-0 items-center justify-center gap-4">
+        {/* Tout en bas, au ras du pouce : c'est la commande qu'on touche le
+            plus souvent, elle ne doit demander aucun effort. Le bouton
+            Soutenir la surplombe, donc on le voit avant de jouer. */}
+        <div className="mt-3 flex shrink-0 items-center justify-center gap-4 pt-1">
           <PlaylistButton trackId={track.id} />
 
           {hasQueue && (
@@ -283,30 +310,6 @@ export function PlayerSheet() {
             )}
           >
             {repeat ? <RepeatOne size={19} /> : <Repeat size={19} />}
-          </button>
-        </div>
-
-        {/* ------------------------------------------------------- la suite */}
-        <div className="shrink-0">
-        <ADecouvrir
-          items={suggestions}
-          chargement={chargeSuggestions}
-          queue={queue}
-          index={index}
-          goTo={goTo}
-        />
-        </div>
-
-        {/* Le bouton qui rapporte de l'argent est toujours à sa place. */}
-        <div className="shrink-0 pt-2.5">
-          <SupportersStrip supporters={supporters} loading={loading} />
-
-          <button
-            onClick={() => setSheetOpen(true)}
-            className="mt-2.5 flex h-13 w-full items-center justify-center gap-2 rounded-full grad-brand text-[16px] font-semibold text-ink glow-brand transition active:scale-[.98]"
-          >
-            <Spark size={18} />
-            {locked ? "Débloquer ce son" : `Soutenir ${artist.name}`}
           </button>
         </div>
       </div>
