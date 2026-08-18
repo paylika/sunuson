@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { trackSupporters } from "@/lib/actions";
+import { suggestionsPour, trackSupporters } from "@/lib/actions";
 import type { TrackSupporter } from "@/lib/queries";
+import type { Artist, Track } from "@/lib/types";
 import { duration, initials } from "@/lib/format";
 import { ambianceDe, type Ambiance } from "@/lib/couleur";
 import { usePlayer, useUnlock, type QueueItem } from "./providers";
@@ -56,6 +57,8 @@ export function PlayerSheet() {
   // n'est pas lue, mieux vaut un fond sombre discret qu'une couleur qui sera
   // peut-être démentie une seconde plus tard.
   const [ambiance, setAmbiance] = useState<Ambiance>(["#26282e", "#101115"]);
+  const [suggestions, setSuggestions] = useState<Item[]>([]);
+  const [chargeSuggestions, setChargeSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -77,6 +80,28 @@ export function PlayerSheet() {
       annule = true;
     };
   }, [expanded, pochette]);
+
+  // Chargées une fois par artiste écouté, pas à chaque ouverture : elles ne
+  // changent pas entre deux morceaux du même rappeur.
+  const artistId = artist?.id;
+
+  useEffect(() => {
+    if (!expanded || !artistId) return;
+    let annule = false;
+
+    setChargeSuggestions(true);
+    suggestionsPour(artistId, artist?.city)
+      .then((list) => {
+        if (!annule) setSuggestions(list);
+      })
+      .finally(() => {
+        if (!annule) setChargeSuggestions(false);
+      });
+
+    return () => {
+      annule = true;
+    };
+  }, [expanded, artistId, artist?.city]);
 
   useEffect(() => {
     if (!expanded || !trackId) return;
@@ -128,8 +153,12 @@ export function PlayerSheet() {
     }
   }
 
+  // Le lecteur s'arrête au-dessus de la barre de navigation au lieu de la
+  // recouvrir : on peut passer à Découvrir ou à sa playlist sans replier
+  // l'écran d'abord. Un lecteur qui emprisonne oblige à un geste de sortie
+  // avant chaque geste utile.
   return (
-    <div className="fixed inset-0 z-50 bg-bg fade">
+    <div className="fixed inset-x-0 top-0 bottom-24 z-50 bg-bg fade">
       {/* Nappe tirée des pixels de la pochette, plus du dégradé stocké de
           l'artiste : sur une pochette en noir et blanc, celui-ci teintait de
           violet une image qui n'a aucune couleur. */}
@@ -144,7 +173,7 @@ export function PlayerSheet() {
           le milieu défile. Sans ça, la file d'attente ajoutée sous les
           commandes poussait le contenu à 1062 px dans un écran de 812 : sur un
           téléphone ordinaire, la fin de l'écran était simplement coupée. */}
-      <div className="relative mx-auto flex h-dvh w-full max-w-[480px] flex-col px-5 pb-6 pt-4">
+      <div className="relative mx-auto flex h-full w-full max-w-[480px] flex-col px-5 pb-4 pt-4">
         {/* -------------------------------------------------------- entête */}
         <header className="flex items-center justify-between">
           <button
@@ -252,7 +281,13 @@ export function PlayerSheet() {
         </div>
 
         {/* ------------------------------------------------------- la suite */}
-        <FileDAttente queue={queue} index={index} goTo={goTo} />
+        <ADecouvrir
+          items={suggestions}
+          chargement={chargeSuggestions}
+          queue={queue}
+          index={index}
+          goTo={goTo}
+        />
         </div>
 
         {/* Le bouton qui rapporte de l'argent ne défile jamais. */}
@@ -280,88 +315,63 @@ export function PlayerSheet() {
   );
 }
 
-/* ------------------------------------------------------------- la file */
+type Item = { track: Track; artist: Artist };
+
+/* ------------------------------------------------------ à découvrir */
 
 /**
- * Ce qui vient après.
+ * Ce qu'on peut écouter ensuite, chez d'autres artistes.
  *
- * Un lecteur qui ne montre pas le morceau suivant donne l'impression que
- * l'écoute s'arrête là. La carte du suivant se glisse sous celle du morceau
- * en cours, décalée : on comprend qu'il y a une pile, et qu'elle avance.
+ * La carte « à suivre » qui occupait cette place a été retirée : l'auditeur
+ * avait déjà deux façons d'avancer dans la file — les boutons sous la barre
+ * de lecture et le glissement de la pochette. Une troisième ne servait plus
+ * qu'à occuper l'espace le plus précieux de l'écran.
  *
- * Repliée par défaut : sur un écran de téléphone, la liste complète mangerait
- * la place du bouton Soutenir, qui est la raison d'être de cet écran.
+ * Cet espace sert donc à sortir de l'artiste en cours, ce qu'aucun autre
+ * geste ne permettait depuis le lecteur. La file complète reste accessible
+ * par le bouton de droite : glisser pour avancer, déplier pour choisir.
  */
-function FileDAttente({
+function ADecouvrir({
+  items,
+  chargement,
   queue,
   index,
   goTo,
 }: {
+  items: Item[];
+  chargement: boolean;
   queue: QueueItem[];
   index: number;
   goTo: (i: number) => void;
 }) {
-  const [ouverte, setOuverte] = useState(false);
+  const [file, setFile] = useState(false);
+  const { playQueue } = usePlayer();
 
-  const suivant = queue[index + 1];
-  const restants = queue.length - index - 1;
-
-  if (queue.length <= 1) return null;
+  if (chargement && items.length === 0) {
+    return <div className="mt-5 h-[104px] animate-pulse rounded-2xl bg-fg/[.04]" />;
+  }
+  if (items.length === 0 && queue.length <= 1) return null;
 
   return (
     <div className="mt-5">
       <div className="flex items-baseline justify-between px-1">
         <span className="text-[11px] font-bold uppercase tracking-wider text-fg/35">
-          {suivant ? "À suivre" : "Dernier de la file"}
+          {file ? "Ta file" : "À découvrir"}
         </span>
-        <button
-          onClick={() => setOuverte((o) => !o)}
-          className="text-[11.5px] font-semibold text-acid-500"
-        >
-          {ouverte
-            ? "Replier"
-            : `Toute la file · ${queue.length}`}
-        </button>
+        {queue.length > 1 && (
+          <button
+            onClick={() => setFile((f) => !f)}
+            className="text-[11.5px] font-semibold text-acid-500"
+          >
+            {file ? "Voir les suggestions" : `Toute la file · ${queue.length}`}
+          </button>
+        )}
       </div>
 
-      {!ouverte && suivant && (
-        <button
-          onClick={() => goTo(index + 1)}
-          className="relative mt-2 w-full text-left"
-        >
-          {/* La carte fantôme derrière suggère la pile : c'est elle qui dit
-              qu'il en reste d'autres, sans les lister. */}
-          {restants > 1 && (
-            <span className="absolute inset-x-3 -bottom-1.5 h-8 rounded-2xl bg-fg/[.05]" />
-          )}
-
-          <span className="relative flex items-center gap-3 rounded-2xl glass px-3 py-2.5 transition active:scale-[.99]">
-            <Cover
-              gradient={suivant.artist.gradient}
-              src={suivant.track.coverUrl}
-              rounded="rounded-xl"
-              className="h-11 w-11 shrink-0"
-            />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[13.5px] font-semibold">
-                {suivant.track.title}
-              </span>
-              <span className="mt-0.5 block truncate text-[11px] text-fg/40">
-                {suivant.artist.name}
-                {restants > 1 && ` · ${restants - 1} autre${restants > 2 ? "s" : ""} ensuite`}
-              </span>
-            </span>
-            <SkipForward size={16} className="shrink-0 text-fg/30" />
-          </span>
-        </button>
-      )}
-
-      {ouverte && (
-        <div className="mt-2 max-h-52 space-y-1.5 overflow-y-auto pr-0.5">
+      {file ? (
+        <div className="mt-2 max-h-44 space-y-1.5 overflow-y-auto pr-0.5">
           {queue.map((item, i) => {
             const enCours = i === index;
-            const passe = i < index;
-
             return (
               <button
                 key={`${item.track.id}-${i}`}
@@ -369,9 +379,7 @@ function FileDAttente({
                 className={cx(
                   "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition active:scale-[.99]",
                   enCours ? "bg-acid-500/10" : "hover:bg-fg/[.04]",
-                  // Ce qui est déjà passé s'efface sans disparaître : on peut
-                  // toujours y revenir, mais l'œil va d'abord vers la suite.
-                  passe && "opacity-40",
+                  i < index && "opacity-40",
                 )}
               >
                 <span className="w-4 shrink-0 text-center text-[10.5px] font-bold tabular-nums text-fg/30">
@@ -393,6 +401,37 @@ function FileDAttente({
               </button>
             );
           })}
+        </div>
+      ) : (
+        // Marges négatives : une bande qui s'arrête avant le bord semble
+        // finie, et on ne la pousse pas.
+        <div className="-mx-5 mt-2 flex gap-2.5 overflow-x-auto px-5 pb-1">
+          {items.map(({ track, artist }, i) => (
+            <button
+              key={track.id}
+              onClick={() =>
+                playQueue(
+                  items.map((x) => ({ track: x.track, artist: x.artist })),
+                  i,
+                )
+              }
+              className="w-[92px] shrink-0 text-left"
+            >
+              <Cover
+                gradient={artist.gradient}
+                src={track.coverUrl}
+                alt={track.title}
+                rounded="rounded-2xl"
+                className="aspect-square w-full"
+              />
+              <span className="mt-1.5 block truncate text-[11.5px] font-semibold">
+                {track.title}
+              </span>
+              <span className="block truncate text-[10.5px] text-fg/40">
+                {artist.name}
+              </span>
+            </button>
+          ))}
         </div>
       )}
     </div>

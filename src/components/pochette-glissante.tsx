@@ -37,6 +37,10 @@ export function PochetteGlissante({
 }) {
   const [dx, setDx] = useState(0);
   const [glisse, setGlisse] = useState(false);
+  // La carte part vraiment avant que le morceau ne change : sans cette
+  // sortie, elle revenait d'un coup au centre et la nouvelle pochette
+  // apparaissait sèchement, ce qui donnait un geste brutal.
+  const [sortie, setSortie] = useState<0 | -1 | 1>(0);
   const depart = useRef<{ x: number; y: number } | null>(null);
   // Un geste vertical est un défilement de page, pas un changement de son :
   // une fois qu'on a tranché, on ne revient pas dessus pendant le même geste.
@@ -79,13 +83,37 @@ export function PochetteGlissante({
     setGlisse(false);
 
     if (axe.current === "horizontal") {
-      if (dx <= -seuil && suivant) onSuivant();
-      else if (dx >= seuil && precedent) onPrecedent();
+      if (dx <= -seuil && suivant) {
+        terminer(-1, onSuivant);
+        return;
+      }
+      if (dx >= seuil && precedent) {
+        terminer(1, onPrecedent);
+        return;
+      }
     }
+    // Geste insuffisant : la pochette revient d'elle-même, ce qui apprend le
+    // seuil sans avoir à l'expliquer.
     setDx(0);
   }
 
-  const avancement = Math.min(1, Math.abs(dx) / (seuil * 2));
+  /** Fait sortir la carte, puis change de morceau une fois qu'elle est hors champ. */
+  function terminer(sens: -1 | 1, action: () => void) {
+    setSortie(sens);
+    setDx(sens * largeur * 1.15);
+
+    window.setTimeout(() => {
+      action();
+      // Remise au centre sans transition : la nouvelle carte ne doit pas
+      // sembler revenir de l'endroit où l'ancienne est partie.
+      setGlisse(true);
+      setDx(0);
+      setSortie(0);
+      requestAnimationFrame(() => setGlisse(false));
+    }, 240);
+  }
+
+  const avancement = sortie ? 1 : Math.min(1, Math.abs(dx) / (seuil * 2));
   const versSuivant = dx < 0;
   const derriere = versSuivant ? suivant : precedent;
 
@@ -108,6 +136,11 @@ export function PochetteGlissante({
             style={{
               transform: `scale(${0.9 + avancement * 0.1}) translateY(${(1 - avancement) * 14}px)`,
               opacity: 0.35 + avancement * 0.65,
+              // La carte du dessous suit la même courbe que celle du dessus :
+              // deux rythmes différents se voient immédiatement.
+              transition: glisse
+                ? "none"
+                : "transform 380ms cubic-bezier(.22,1,.36,1), opacity 380ms ease-out",
             }}
           >
             <Cover
@@ -121,15 +154,19 @@ export function PochetteGlissante({
         )}
 
         <div
-          className={cx(
-            "relative",
-            // Aucune transition pendant le geste : la pochette doit coller au
-            // doigt. Elle n'en reprend une qu'au relâchement, pour revenir.
-            !glisse && "transition-transform duration-300",
-          )}
+          className="relative"
           style={{
-            transform: `translateX(${dx}px) rotate(${dx * 0.02}deg)`,
-            opacity: 1 - avancement * 0.35,
+            transform: `translateX(${dx}px) rotate(${dx * 0.025}deg)`,
+            opacity: sortie ? 0 : 1 - avancement * 0.3,
+            // Aucune transition pendant le geste : la pochette doit coller au
+            // doigt. Elle en reprend une au relâchement — une courbe qui
+            // décélère franchement, plus proche d'un objet lancé que d'un
+            // mouvement mécanique.
+            transition: glisse
+              ? "none"
+              : sortie
+                ? "transform 240ms cubic-bezier(.32,.72,0,1), opacity 240ms ease-out"
+                : "transform 380ms cubic-bezier(.22,1,.36,1), opacity 380ms ease-out",
           }}
         >
           <Cover

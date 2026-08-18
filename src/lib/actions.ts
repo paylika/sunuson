@@ -4,6 +4,7 @@ import { revalidatePath as revalidateNext } from "next/cache";
 import { supabaseAdmin } from "./db";
 import { currentUser, supabaseSession } from "./auth";
 import {
+  getSuggestions,
   getSupportersOfTrack,
   getTracksByIds,
   searchArtists,
@@ -454,6 +455,11 @@ export async function playlistTracks(ids: string[]) {
 }
 
 /** Fans ayant soutenu un morceau, avec l'instant où ils l'ont fait. */
+/** Suggestions pour le lecteur, qui est un composant client. */
+export async function suggestionsPour(artistId: string, region?: string) {
+  return getSuggestions(artistId, 12, region);
+}
+
 export async function trackSupporters(trackId: string) {
   if (!trackId) return [];
   return getSupportersOfTrack(trackId);

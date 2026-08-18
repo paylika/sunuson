@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { APP_NAME } from "@/lib/config";
 import {
   getArtistBySlug,
-  getSuggestions,
   getSupportsByArtist,
   getTracksByArtist,
 } from "@/lib/queries";
@@ -29,10 +28,9 @@ export default async function ArtistPage({ params }: Props) {
   const artist = await getArtistBySlug(slug);
   if (!artist) notFound();
 
-  const [tracks, supports, suggestions, { user }] = await Promise.all([
+  const [tracks, supports, { user }] = await Promise.all([
     getTracksByArtist(artist.id),
     getSupportsByArtist(artist.id),
-    getSuggestions(artist.id),
     viewer(),
   ]);
 
@@ -46,7 +44,6 @@ export default async function ArtistPage({ params }: Props) {
         tracks={tracks}
         supports={supports}
         nomDuFan={nomDuFan}
-        suggestions={suggestions}
       />
     </Shell>
   );

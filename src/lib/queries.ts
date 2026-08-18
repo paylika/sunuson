@@ -659,6 +659,8 @@ export async function getSupportsByUser(
 export async function getSuggestions(
   excludeArtistId: string,
   limite = 12,
+  /** Foy Tewal de l'artiste écouté : on remonte ses voisins d'abord. */
+  region?: string,
 ): Promise<{ track: Track; artist: Artist }[]> {
   const supabase = client();
 
@@ -689,10 +691,22 @@ export async function getSuggestions(
 
   const parId = new Map(artistRows.map((a) => [a.id, toArtist(a)]));
 
-  return rows
+  const items = rows
     .map((r) => {
       const artist = parId.get(r.artist_id);
       return artist ? { track: toTrack(r), artist } : null;
     })
     .filter((x): x is { track: Track; artist: Artist } => x !== null);
+
+  // Il n'existe pas de genre en base, et en inventer un obligerait chaque
+  // artiste à se ranger dans une case au moment de l'inscription. Le Foy
+  // Tewal en tient lieu : à Dakar, les scènes sont d'abord des quartiers, et
+  // quelqu'un qui écoute un rappeur de Pikine a plus de chances d'aimer un
+  // autre rappeur de Pikine qu'un artiste pris au hasard.
+  if (!region) return items;
+
+  return [
+    ...items.filter((i) => i.artist.city === region),
+    ...items.filter((i) => i.artist.city !== region),
+  ];
 }
