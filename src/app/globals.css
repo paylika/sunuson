@@ -237,3 +237,47 @@ h3 {
     animation: none !important;
   }
 }
+
+/* ============================================================== clavier */
+
+/*
+ * Anneau de focus visible, et seulement au clavier.
+ *
+ * `:focus-visible` plutôt que `:focus` : au doigt ou à la souris, un anneau
+ * qui s'accroche après chaque appui donne l'impression d'un bogue. Il
+ * n'apparaît donc que pour qui navigue à la tabulation — et pour celui-là il
+ * est indispensable, puisque rien d'autre ne dit où il se trouve.
+ */
+:focus-visible {
+  outline: 2px solid var(--color-acid-500);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
+/* La souris révèle, le doigt ne peut pas : on ne montre donc au survol que ce
+ * qui reste accessible autrement. */
+@media (hover: hover) {
+  .survol-monte {
+    transition:
+      transform 0.18s ease,
+      background-color 0.18s ease;
+  }
+  .survol-monte:hover {
+    transform: translateY(-2px);
+  }
+}
+
+/*
+ * Barre de défilement discrète sur ordinateur.
+ *
+ * Les bandes horizontales — suggestions, quartiers, file d'attente — sont
+ * conçues pour le pouce. À la souris, sans barre visible, on ne sait pas
+ * qu'elles continuent.
+ */
+@media (hover: hover) {
+  .overflow-x-auto,
+  .overflow-y-auto {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+  }
+}

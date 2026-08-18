@@ -249,6 +249,60 @@ function PlayerProvider({ children }: { children: ReactNode }) {
   );
 
   /**
+   * Le clavier, sur ordinateur.
+   *
+   * Un lecteur de musique sur le web où la barre d'espace ne fait rien
+   * trahit une application mobile posée sur un grand écran. Ces raccourcis
+   * sont ceux de tout le monde — espace, flèches — donc personne n'a à les
+   * apprendre.
+   *
+   * On ne les capte jamais pendant une saisie : sinon écrire « J'espère »
+   * dans un message de soutien mettrait la musique en pause à chaque mot.
+   */
+  useEffect(() => {
+    function surTouche(e: KeyboardEvent) {
+      const cible = e.target as HTMLElement | null;
+      const saisie =
+        cible?.tagName === "INPUT" ||
+        cible?.tagName === "TEXTAREA" ||
+        cible?.tagName === "SELECT" ||
+        cible?.isContentEditable;
+
+      if (saisie || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (!current) return;
+
+      const el = audioRef.current;
+
+      switch (e.key) {
+        case " ":
+          e.preventDefault();
+          setPlaying((p) => !p);
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          // Maj + flèche change de morceau, la flèche seule avance dans
+          // celui-ci : c'est la convention des lecteurs vidéo.
+          if (e.shiftKey) next();
+          else if (el) el.currentTime = Math.min(el.duration || 0, el.currentTime + 10);
+          break;
+        case "ArrowLeft":
+          e.preventDefault();
+          if (e.shiftKey) previous();
+          else if (el) el.currentTime = Math.max(0, el.currentTime - 10);
+          break;
+        case "Escape":
+          setExpanded(false);
+          break;
+        default:
+          return;
+      }
+    }
+
+    window.addEventListener("keydown", surTouche);
+    return () => window.removeEventListener("keydown", surTouche);
+  }, [current, next, previous]);
+
+  /**
    * Écran verrouillé, casque, voiture : les commandes du système.
    *
    * C'est ce qui sépare un lecteur de navigateur d'une vraie application de

@@ -147,7 +147,7 @@ export function MiniPlayer({ bottom = 104 }: { bottom?: number }) {
 
   return (
     <div
-      className="fixed inset-x-0 z-30 mx-auto w-full max-w-[480px] px-4"
+      className="fixed inset-x-0 z-30 mx-auto w-full max-w-[480px] md:max-w-[560px] px-4"
       // La page artiste pose une barre de soutien collante au-dessus de la
       // navigation. Elle annonce sa hauteur par cette variable plutôt que par
       // un contexte : le mini-lecteur monte alors tout seul, sans qu'aucun

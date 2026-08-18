@@ -18,7 +18,12 @@ export async function Shell({ children }: { children: ReactNode }) {
   const { artist } = await viewer();
 
   return (
-    <div className="relative mx-auto w-full max-w-[480px] px-4 pb-52 pt-5">
+    // 480 px est la bonne largeur pour un pouce, pas pour un écran de
+    // portable : au-delà, la colonne s'élargit un peu et les grilles passent
+    // à trois colonnes. On ne bascule pas sur une mise en page de bureau —
+    // l'application reste la même, elle cesse juste d'être une bande étroite
+    // perdue au milieu du vide.
+    <div className="relative mx-auto w-full max-w-[480px] px-4 pb-52 pt-5 md:max-w-[680px] md:px-6">
       {children}
       <MiniPlayer />
       {/* La barre lit les paramètres d'adresse pour savoir si « Publier » est

@@ -174,7 +174,12 @@ export function PlayerSheet() {
           les suggestions et le bouton Soutenir posés. Faire défiler un lecteur
           pour atteindre le bouton qui rapporte de l'argent était le pire
           arbitrage possible. */}
-      <div className="relative mx-auto flex h-full w-full max-w-[480px] flex-col overflow-y-auto px-5 pb-3 pt-3">
+      {/* Une colonne, même sur un grand écran — un peu plus large, pas plus.
+          J'ai essayé deux colonnes avec la pochette à gauche : le placement
+          automatique de la grille dispersait le titre et les commandes du
+          mauvais côté. Une colonne propre vaut mieux qu'une grille savante
+          mal réglée. */}
+      <div className="relative mx-auto flex h-full w-full max-w-[480px] flex-col overflow-y-auto px-5 pb-3 pt-3 md:max-w-[560px]">
         {/* -------------------------------------------------------- entête */}
         <header className="flex items-center justify-between">
           <button

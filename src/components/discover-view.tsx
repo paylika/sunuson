@@ -163,12 +163,12 @@ export function DiscoverView({
             </p>
           </Glass>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
             {results.map(({ artist, total, count }) => (
               <Link
                 key={artist.id}
                 href={`/a/${artist.slug}`}
-                className="group block"
+                className="group block survol-monte"
               >
                 {/* Carte média : voile noir sur la pochette, texte blanc. */}
                 <div className="relative text-white">

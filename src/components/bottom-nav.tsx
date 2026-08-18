@@ -61,7 +61,7 @@ export function BottomNav({ estArtiste = false }: { estArtiste?: boolean }) {
   const enPublication = recherche.get("publier") === "1";
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] px-4 pb-4">
+    <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] px-4 pb-4 md:max-w-[560px]">
       <div className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-32 bg-gradient-to-t from-bg via-bg/85 to-transparent" />
 
       <div className="glass-strong flex items-center gap-0.5 rounded-[26px] p-1.5">
