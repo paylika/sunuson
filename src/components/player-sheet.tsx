@@ -7,12 +7,12 @@ import { duration, initials } from "@/lib/format";
 import { ambianceDe, type Ambiance } from "@/lib/couleur";
 import { usePlayer, useUnlock, type QueueItem } from "./providers";
 import { PlaylistButton } from "./playlist-button";
+import { PochetteGlissante } from "./pochette-glissante";
 import { SupportSheet } from "./support-sheet";
 import { Waveform } from "./waveform";
 import { Cover, cx } from "./ui";
 import {
   ChevronLeft,
-  Lock,
   Pause,
   Play,
   Repeat,
@@ -166,26 +166,15 @@ export function PlayerSheet() {
         </header>
 
         {/* ------------------------------------------------------ pochette */}
-        <div className="mt-6 flex justify-center">
-          <div className="relative w-full max-w-[300px]">
-            <Cover
-              gradient={artist.gradient}
-              src={track.coverUrl}
-              alt={track.title}
-              rounded="rounded-[32px]"
-              className="aspect-square w-full shadow-[0_40px_80px_-30px_rgba(88,28,135,.65)]"
-            />
-            {locked && (
-              <div className="absolute inset-0 grid place-items-center rounded-[32px] bg-black/55 backdrop-blur-sm">
-                <div className="text-center text-white">
-                  <Lock size={26} className="mx-auto" />
-                  <p className="mt-2 text-[12.5px] font-semibold">
-                    Réservé aux soutiens
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
+        <div className="mt-6">
+          <PochetteGlissante
+            courant={{ track, artist }}
+            suivant={queue[index + 1]}
+            precedent={queue[index - 1]}
+            verrouille={locked}
+            onSuivant={() => goTo(index + 1)}
+            onPrecedent={() => goTo(index - 1)}
+          />
         </div>
 
         {/* --------------------------------------------------------- titre */}
