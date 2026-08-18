@@ -9,6 +9,7 @@ import {
   searchArtists,
 } from "./queries";
 import { MAX_SUPPORT, MIN_SUPPORT, type PaymentMethod } from "./config";
+import { communeValide } from "./senegal";
 import {
   checkImageFile,
   COVER_RULES,
@@ -159,6 +160,10 @@ export async function updateArtistProfile(input: {
   const bio = (input.bio || "").trim().slice(0, 300);
   const city = (input.city || "").trim().slice(0, 60);
   const label = (input.label || "").trim().slice(0, 60);
+
+  if (!communeValide(city)) {
+    return { ok: false, error: "Choisis ton Foy Tewal dans la liste." };
+  }
 
   const { error } = await supabaseAdmin()
     .from("artists")
@@ -424,8 +429,11 @@ export async function createArtistProfile(input: {
   if (name.length < 2) {
     return { ok: false, error: "Ton nom d'artiste fait au moins 2 lettres." };
   }
-  if (city.length < 2) {
-    return { ok: false, error: "Indique ton Foy Tewal." };
+  // La liste fermée ne vaut que si le serveur la fait respecter : sans ça,
+  // une requête forgée à la main réintroduirait le champ libre qu'on vient
+  // d'enlever, et le filtre de Découvrir repartirait en morceaux.
+  if (!communeValide(city)) {
+    return { ok: false, error: "Choisis ton Foy Tewal dans la liste." };
   }
 
   const admin = supabaseAdmin();

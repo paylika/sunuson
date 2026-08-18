@@ -19,6 +19,7 @@ import { compact, duration, fcfa, timeAgo } from "@/lib/format";
 import { PHOTO_RULES } from "@/lib/storage";
 import type { Balance } from "@/lib/queries";
 import { grouperSoutiens } from "@/lib/soutiens";
+import { REGIONS, regionDe } from "@/lib/senegal";
 import type { Artist, Support, Track } from "@/lib/types";
 import { ArtistView } from "./artist-view";
 import { TrackUploadSheet } from "./track-upload-sheet";
@@ -466,6 +467,66 @@ function MesSoutiens({ supports }: { supports: Support[] }) {
   );
 }
 
+/* ---------------------------------------------------------- Foy Tewal */
+
+/**
+ * Région puis quartier, avec les menus natifs du téléphone.
+ *
+ * Le même couple qu'à l'inscription : deux vocabulaires ou deux mécaniques
+ * pour un seul réglage donneraient l'impression de deux champs différents.
+ */
+function SelectFoyTewal({
+  region,
+  city,
+  surRegion,
+  surVille,
+}: {
+  region: string;
+  city: string;
+  surRegion: (v: string) => void;
+  surVille: (v: string) => void;
+}) {
+  const communes = REGIONS.find((r) => r.nom === region)?.communes ?? [];
+
+  const style =
+    "w-full appearance-none rounded-2xl glass px-4 py-3.5 pr-8 text-[14px] outline-none";
+
+  return (
+    <>
+      <select
+        value={region}
+        onChange={(e) => surRegion(e.target.value)}
+        className={cx(style, !region && "text-fg/35")}
+      >
+        <option value="" className="bg-surface text-fg">
+          Région
+        </option>
+        {REGIONS.map((r) => (
+          <option key={r.nom} value={r.nom} className="bg-surface text-fg">
+            {r.nom}
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={city}
+        onChange={(e) => surVille(e.target.value)}
+        disabled={!region}
+        className={cx(style, !city && "text-fg/35", !region && "opacity-40")}
+      >
+        <option value="" className="bg-surface text-fg">
+          {region ? "Quartier" : "Région d'abord"}
+        </option>
+        {communes.map((c) => (
+          <option key={c} value={c} className="bg-surface text-fg">
+            {c}
+          </option>
+        ))}
+      </select>
+    </>
+  );
+}
+
 /* ========================================================= profil artiste */
 
 function ProfileEditor({ artist }: { artist: Artist }) {
@@ -586,6 +647,9 @@ function ProfileFields({ artist }: { artist: Artist }) {
   const router = useRouter();
   const [bio, setBio] = useState(artist.bio);
   const [city, setCity] = useState(artist.city);
+  // La région se déduit du quartier déjà enregistré : l'artiste ne la
+  // ressaisit pas pour corriger sa bio.
+  const [region, setRegion] = useState(regionDe(artist.city) ?? "");
   const [label, setLabel] = useState(artist.label ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -635,22 +699,27 @@ function ProfileFields({ artist }: { artist: Artist }) {
         className="w-full resize-none rounded-2xl glass px-4 py-3.5 text-[13.5px] leading-relaxed outline-none placeholder:text-fg/35"
       />
 
+      {/* Foy Tewal se choisit, ici aussi. Un champ libre dans l'atelier
+          suffirait à casser ce que la liste fermée protège à l'inscription. */}
       <div className="mt-2.5 grid grid-cols-2 gap-2.5">
-        <input
-          value={city}
-          onChange={(e) => setCity(e.target.value)}
-          placeholder="Foy Tewal"
-          maxLength={60}
-          className="w-full rounded-2xl glass px-4 py-3.5 text-[14px] outline-none placeholder:text-fg/35"
-        />
-        <input
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          placeholder="Label"
-          maxLength={60}
-          className="w-full rounded-2xl glass px-4 py-3.5 text-[14px] outline-none placeholder:text-fg/35"
+        <SelectFoyTewal
+          region={region}
+          city={city}
+          surRegion={(r) => {
+            setRegion(r);
+            setCity("");
+          }}
+          surVille={setCity}
         />
       </div>
+
+      <input
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        placeholder="Label"
+        maxLength={60}
+        className="mt-2.5 w-full rounded-2xl glass px-4 py-3.5 text-[14px] outline-none placeholder:text-fg/35"
+      />
 
       <p className="mt-1.5 px-1 text-[10.5px] leading-relaxed text-fg/35">
         Label vide = affiché « Indépendant ». Ton nom d&apos;artiste vient de

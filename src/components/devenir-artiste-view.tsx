@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { createArtistProfile } from "@/lib/actions";
 import { APP_DOMAIN, COMMISSION_RATE } from "@/lib/config";
+import { REGIONS } from "@/lib/senegal";
 import { BackButton } from "./page-header";
 import { cx, Glass } from "./ui";
 import { ChevronRight, Lock, Spark, Wallet } from "./icons";
@@ -24,6 +25,7 @@ import { ChevronRight, Lock, Spark, Wallet } from "./icons";
 export function DevenirArtisteView() {
   const router = useRouter();
   const [nom, setNom] = useState("");
+  const [region, setRegion] = useState("");
   const [ville, setVille] = useState("");
   const [droits, setDroits] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -32,7 +34,8 @@ export function DevenirArtisteView() {
   // Foy Tewal est obligatoire : c'est ce qui rattache l'artiste à un endroit,
   // et c'est aussi ce qui alimente le filtre de Découvrir. Un artiste sans
   // quartier est introuvable pour quelqu'un qui cherche les siens.
-  const valide = nom.trim().length >= 2 && ville.trim().length >= 2 && droits;
+  const communes = REGIONS.find((r) => r.nom === region)?.communes ?? [];
+  const valide = nom.trim().length >= 2 && ville !== "" && droits;
 
   function creer() {
     setErreur(null);
@@ -121,13 +124,28 @@ export function DevenirArtisteView() {
           Le quartier que tu représentes. Dans le rap, on demande toujours
           d&apos;où tu sors avant d&apos;écouter.
         </p>
-        <input
-          value={ville}
-          onChange={(e) => setVille(e.target.value)}
-          placeholder="Pikine, Guédiawaye, Médina…"
-          maxLength={60}
-          className="mt-2 h-14 w-full rounded-2xl glass px-5 text-[16px] outline-none placeholder:text-fg/25 focus:border-acid-500/40"
-        />
+
+        {/* Deux listes plutôt qu'un champ libre. Le menu natif du téléphone
+            s'ouvre en plein écran et se fait défiler au pouce : c'est le seul
+            sélecteur que tout le monde sait déjà utiliser. */}
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <Choix
+            valeur={region}
+            surChangement={(v) => {
+              setRegion(v);
+              setVille("");
+            }}
+            vide="Région"
+            options={REGIONS.map((r) => r.nom)}
+          />
+          <Choix
+            valeur={ville}
+            surChangement={setVille}
+            vide={region ? "Quartier" : "Région d'abord"}
+            options={communes}
+            inactif={!region}
+          />
+        </div>
       </div>
 
       {/* La déclaration de droits : la seule case qui empêche vraiment
@@ -181,6 +199,58 @@ export function DevenirArtisteView() {
         n&apos;enlève rien.
       </p>
     </>
+  );
+}
+
+/**
+ * Liste déroulante native.
+ *
+ * Pas de menu dessiné à la main : sur un téléphone, le sélecteur du système
+ * s'ouvre en plein écran, se fait défiler au pouce et fonctionne avec les
+ * lecteurs d'écran. Un composant maison serait plus joli et moins utilisable.
+ * Seule la flèche est redessinée, faute de pouvoir la styler.
+ */
+function Choix({
+  valeur,
+  surChangement,
+  vide,
+  options,
+  inactif,
+}: {
+  valeur: string;
+  surChangement: (v: string) => void;
+  vide: string;
+  options: string[];
+  inactif?: boolean;
+}) {
+  return (
+    <div className="relative">
+      <select
+        value={valeur}
+        onChange={(e) => surChangement(e.target.value)}
+        disabled={inactif}
+        className={cx(
+          "h-14 w-full appearance-none rounded-2xl glass pl-5 pr-9 text-[15px] outline-none focus:border-acid-500/40",
+          !valeur && "text-fg/30",
+          inactif && "opacity-40",
+        )}
+      >
+        <option value="" className="bg-surface text-fg">
+          {vide}
+        </option>
+        {options.map((o) => (
+          <option key={o} value={o} className="bg-surface text-fg">
+            {o}
+          </option>
+        ))}
+      </select>
+
+      <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-fg/35">
+        <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </span>
+    </div>
   );
 }
 
