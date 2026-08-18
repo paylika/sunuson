@@ -58,7 +58,7 @@ export function Waveform({
           onSeek(((e.clientX - r.left) / r.width) * total);
         }}
       >
-        <div className="flex h-14 items-center gap-[2px]">
+        <div className="flex h-11 items-center gap-[2px]">
           {bars.map((h, i) => (
             <span
               key={i}
@@ -72,12 +72,12 @@ export function Waveform({
         </div>
 
         {/* Repères des fans, posés sous l'onde à leur seconde. */}
-        <div className="relative mt-1.5 h-6">
+        <div className="relative mt-1 h-5">
           {posed.map((m, i) => (
             <span
               key={`${m.name}-${i}`}
               title={`${m.name} · ${formatDuration(m.positionSec ?? 0)}`}
-              className="absolute top-0 grid h-6 w-6 -translate-x-1/2 place-items-center rounded-full bg-acid-500 text-[8.5px] font-extrabold text-ink ring-2 ring-bg"
+              className="absolute top-0 grid h-5 w-5 -translate-x-1/2 place-items-center rounded-full bg-acid-500 text-[8px] font-extrabold text-ink ring-2 ring-bg"
               style={{
                 left: `${Math.min(97, Math.max(3, ((m.positionSec ?? 0) / total) * 100))}%`,
               }}
@@ -88,7 +88,7 @@ export function Waveform({
         </div>
       </div>
 
-      <div className="mt-1 flex justify-between text-[11px] font-medium tabular-nums text-fg/40">
+      <div className="mt-0.5 flex justify-between text-[10.5px] font-medium tabular-nums text-fg/40">
         <span>{formatDuration(position)}</span>
         <span>{formatDuration(total)}</span>
       </div>

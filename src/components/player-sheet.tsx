@@ -169,17 +169,18 @@ export function PlayerSheet() {
         }}
       />
 
-      {/* Trois zones : l'entête et le bouton Soutenir restent en place, seul
-          le milieu défile. Sans ça, la file d'attente ajoutée sous les
-          commandes poussait le contenu à 1062 px dans un écran de 812 : sur un
-          téléphone ordinaire, la fin de l'écran était simplement coupée. */}
-      <div className="relative mx-auto flex h-full w-full max-w-[480px] flex-col px-5 pb-4 pt-4">
+      {/* Tout tient dans l'écran, sans défilement. La pochette est le seul
+          élément élastique : elle prend ce qui reste une fois les commandes,
+          les suggestions et le bouton Soutenir posés. Faire défiler un lecteur
+          pour atteindre le bouton qui rapporte de l'argent était le pire
+          arbitrage possible. */}
+      <div className="relative mx-auto flex h-full w-full max-w-[480px] flex-col overflow-y-auto px-5 pb-3 pt-3">
         {/* -------------------------------------------------------- entête */}
         <header className="flex items-center justify-between">
           <button
             onClick={collapse}
             aria-label="Réduire"
-            className="grid h-11 w-11 place-items-center rounded-full glass text-fg/70 active:scale-90"
+            className="grid h-10 w-10 place-items-center rounded-full glass text-fg/70 active:scale-90"
           >
             <ChevronLeft size={19} className="-rotate-90" />
           </button>
@@ -192,15 +193,18 @@ export function PlayerSheet() {
           <button
             onClick={share}
             aria-label="Partager"
-            className="grid h-11 w-11 place-items-center rounded-full glass text-fg/70 active:scale-90"
+            className="grid h-10 w-10 place-items-center rounded-full glass text-fg/70 active:scale-90"
           >
             <Share size={17} />
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
-        {/* ------------------------------------------------------ pochette */}
-        <div className="mt-6">
+        {/* La pochette est le seul élément élastique : elle prend ce qui reste
+            une fois les commandes, les suggestions et le bouton Soutenir
+            posés. Un plancher de 150 px l'empêche d'être écrasée sur un petit
+            écran — là, c'est la page qui défile un peu, ce qui vaut mieux
+            qu'une vignette illisible. */}
+        <div className="min-h-[186px] flex-1 shrink-0 py-3">
           <PochetteGlissante
             courant={{ track, artist }}
             suivant={queue[index + 1]}
@@ -212,9 +216,11 @@ export function PlayerSheet() {
         </div>
 
         {/* --------------------------------------------------------- titre */}
-        <div className="mt-6 text-center">
-          <h1 className="display text-[27px] font-extrabold">{track.title}</h1>
-          <p className="mt-1 text-[13px] text-fg/50">
+        <div className="shrink-0 text-center">
+          <h1 className="display truncate text-[24px] font-extrabold">
+            {track.title}
+          </h1>
+          <p className="mt-0.5 truncate text-[12.5px] text-fg/50">
             {track.collaborators.length > 0
               ? `feat. ${track.collaborators.map((c) => c.name).join(", ")}`
               : (track.label ?? artist.city)}
@@ -222,7 +228,7 @@ export function PlayerSheet() {
         </div>
 
         {/* ---------------------------------------------------- progression */}
-        <div className="mt-5">
+        <div className="mt-3.5 shrink-0">
           <Waveform
             trackId={track.id}
             position={position}
@@ -236,7 +242,7 @@ export function PlayerSheet() {
         {/* Suivant et précédent n'apparaissent que dans une file — ailleurs
             ils n'auraient rien à enchaîner. Favori et répétition, eux, ont
             un sens partout. */}
-        <div className="mt-5 flex items-center justify-center gap-4">
+        <div className="mt-3.5 flex shrink-0 items-center justify-center gap-4">
           <PlaylistButton trackId={track.id} />
 
           {hasQueue && (
@@ -252,7 +258,7 @@ export function PlayerSheet() {
           <button
             onClick={() => toggle(track, artist)}
             aria-label={playing ? "Pause" : "Lecture"}
-            className="grid h-18 w-18 shrink-0 place-items-center rounded-full grad-brand text-ink glow-brand transition active:scale-90"
+            className="grid h-16 w-16 shrink-0 place-items-center rounded-full grad-brand text-ink glow-brand transition active:scale-90"
           >
             {playing ? <Pause size={26} /> : <Play size={26} />}
           </button>
@@ -281,6 +287,7 @@ export function PlayerSheet() {
         </div>
 
         {/* ------------------------------------------------------- la suite */}
+        <div className="shrink-0">
         <ADecouvrir
           items={suggestions}
           chargement={chargeSuggestions}
@@ -290,13 +297,13 @@ export function PlayerSheet() {
         />
         </div>
 
-        {/* Le bouton qui rapporte de l'argent ne défile jamais. */}
-        <div className="shrink-0 pt-5">
+        {/* Le bouton qui rapporte de l'argent est toujours à sa place. */}
+        <div className="shrink-0 pt-2.5">
           <SupportersStrip supporters={supporters} loading={loading} />
 
           <button
             onClick={() => setSheetOpen(true)}
-            className="mt-3 flex h-14 w-full items-center justify-center gap-2 rounded-full grad-brand text-[16px] font-semibold text-ink glow-brand transition active:scale-[.98]"
+            className="mt-2.5 flex h-13 w-full items-center justify-center gap-2 rounded-full grad-brand text-[16px] font-semibold text-ink glow-brand transition active:scale-[.98]"
           >
             <Spark size={18} />
             {locked ? "Débloquer ce son" : `Soutenir ${artist.name}`}
@@ -348,14 +355,14 @@ function ADecouvrir({
   const { playQueue } = usePlayer();
 
   if (chargement && items.length === 0) {
-    return <div className="mt-5 h-[104px] animate-pulse rounded-2xl bg-fg/[.04]" />;
+    return <div className="mt-3.5 h-[92px] animate-pulse rounded-2xl bg-fg/[.04]" />;
   }
   if (items.length === 0 && queue.length <= 1) return null;
 
   return (
-    <div className="mt-5">
+    <div className="mt-3.5">
       <div className="flex items-baseline justify-between px-1">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-fg/35">
+        <span className="text-[10.5px] font-bold uppercase tracking-wider text-fg/35">
           {file ? "Ta file" : "À découvrir"}
         </span>
         {queue.length > 1 && (
@@ -369,7 +376,7 @@ function ADecouvrir({
       </div>
 
       {file ? (
-        <div className="mt-2 max-h-44 space-y-1.5 overflow-y-auto pr-0.5">
+        <div className="mt-2 max-h-[104px] space-y-1.5 overflow-y-auto pr-0.5">
           {queue.map((item, i) => {
             const enCours = i === index;
             return (
@@ -415,19 +422,18 @@ function ADecouvrir({
                   i,
                 )
               }
-              className="w-[92px] shrink-0 text-left"
+              className="w-[70px] shrink-0 text-left"
             >
               <Cover
                 gradient={artist.gradient}
                 src={track.coverUrl}
                 alt={track.title}
-                rounded="rounded-2xl"
+                rounded="rounded-xl"
                 className="aspect-square w-full"
               />
-              <span className="mt-1.5 block truncate text-[11.5px] font-semibold">
-                {track.title}
-              </span>
-              <span className="block truncate text-[10.5px] text-fg/40">
+              {/* Le nom de l'artiste seul, pas le titre : à cette taille on ne
+                  choisit pas un morceau, on choisit une voix. */}
+              <span className="mt-1 block truncate text-[10.5px] text-fg/45">
                 {artist.name}
               </span>
             </button>
@@ -449,15 +455,15 @@ function SupportersStrip({
 }) {
   if (loading) {
     return (
-      <div className="h-12 animate-pulse rounded-2xl bg-fg/[.05]" />
+      <div className="h-8 animate-pulse rounded-2xl bg-fg/[.05]" />
     );
   }
 
   if (supporters.length === 0) {
     return (
-      <p className="text-center text-[12.5px] text-fg/45">
+      <p className="text-center text-[11.5px] text-fg/45">
         Personne n&apos;a encore soutenu ce son.{" "}
-        <span className="font-semibold text-brand-300">Sois le premier.</span>
+        <span className="font-semibold text-acid-500">Sois le premier.</span>
       </p>
     );
   }
@@ -468,12 +474,12 @@ function SupportersStrip({
   return (
     <div className="flex items-center justify-center gap-3">
       {/* Pastilles superposées : la même grammaire visuelle que les « j'aime ». */}
-      <div className="flex -space-x-2.5">
+      <div className="flex -space-x-2">
         {shown.map((s, i) => (
           <span
             key={s.name}
             className={cx(
-              "grid h-9 w-9 place-items-center rounded-full text-[10.5px] font-bold text-white ring-2 ring-bg",
+              "grid h-7 w-7 place-items-center rounded-full text-[9.5px] font-bold text-white ring-2 ring-bg",
               i % 2 === 0 ? "grad-brand" : "bg-fg/75",
             )}
           >
@@ -482,7 +488,7 @@ function SupportersStrip({
         ))}
       </div>
 
-      <p className="min-w-0 flex-1 text-[12.5px] leading-snug text-fg/55">
+      <p className="min-w-0 flex-1 text-[11.5px] leading-snug text-fg/55">
         <span className="font-semibold text-fg/80">{shown[0].name}</span>
         {rest > 0 ? (
           <> et {rest + shown.length - 1} autres soutiennent ce son</>

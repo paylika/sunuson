@@ -118,10 +118,13 @@ export function PochetteGlissante({
   const derriere = versSuivant ? suivant : precedent;
 
   return (
-    <div className="flex justify-center">
+    <div className="flex h-full items-center justify-center">
+      {/* La pochette prend la hauteur qu'on lui laisse, jamais une taille
+          fixe : sur un petit téléphone c'est elle qui cède, pas les commandes
+          ni le bouton Soutenir. */}
       <div
         ref={boite}
-        className="relative w-full max-w-[300px] touch-pan-y select-none"
+        className="relative aspect-square h-full max-h-[340px] max-w-full touch-pan-y select-none"
         onPointerDown={commencer}
         onPointerMove={bouger}
         onPointerUp={finir}
@@ -148,13 +151,13 @@ export function PochetteGlissante({
               src={derriere.track.coverUrl}
               alt=""
               rounded="rounded-[32px]"
-              className="aspect-square w-full"
+              className="h-full w-full"
             />
           </div>
         )}
 
         <div
-          className="relative"
+          className="relative h-full"
           style={{
             transform: `translateX(${dx}px) rotate(${dx * 0.025}deg)`,
             opacity: sortie ? 0 : 1 - avancement * 0.3,
@@ -174,7 +177,7 @@ export function PochetteGlissante({
             src={courant.track.coverUrl}
             alt={courant.track.title}
             rounded="rounded-[32px]"
-            className="aspect-square w-full shadow-[0_40px_80px_-30px_rgba(0,0,0,.8)]"
+            className="h-full w-full shadow-[0_40px_80px_-30px_rgba(0,0,0,.8)]"
           />
 
           {verrouille && (
@@ -189,11 +192,11 @@ export function PochetteGlissante({
           )}
         </div>
 
-        {/* L'indice n'apparaît qu'une fois : dès qu'on a glissé une fois, on
-            a compris, et un mode d'emploi permanent devient du bruit. */}
-        {(suivant || precedent) && dx === 0 && (
-          <p className="pointer-events-none absolute inset-x-0 -bottom-6 text-center text-[10.5px] text-fg/25">
-            Glisse la pochette pour changer de son
+        {/* Posé SUR la pochette, jamais en dessous : une ligne de texte sous
+            l'image coûterait une hauteur qu'un petit écran n'a pas. */}
+        {(suivant || precedent) && dx === 0 && !sortie && (
+          <p className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[10px] text-white/45 drop-shadow">
+            Glisse pour changer de son
           </p>
         )}
       </div>
