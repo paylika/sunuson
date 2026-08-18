@@ -7,6 +7,7 @@ import type { Artist, Support, Track } from "@/lib/types";
 import { BackButton } from "./page-header";
 import { SupportSheet } from "./support-sheet";
 import { SupporterWall } from "./supporter-wall";
+import { Suggestions } from "./suggestions";
 import { TrackRow } from "./player-ui";
 import { Avatar, Button, Cover, cx, Glass, NameWithBadge, Stat } from "./ui";
 import { Check, Copy, Share, Spark } from "./icons";
@@ -18,6 +19,7 @@ export function ArtistView({
   tracks,
   supports,
   nomDuFan,
+  suggestions = [],
 }: {
   artist: Artist;
   tracks: Track[];
@@ -25,6 +27,8 @@ export function ArtistView({
   supports: Support[];
   /** Nom du visiteur connecté, s'il en a choisi un. */
   nomDuFan?: string;
+  /** Morceaux d'autres artistes, pour la bande de découverte. */
+  suggestions?: { track: Track; artist: Artist }[];
 }) {
   const [tab, setTab] = useState<Tab>("sons");
   const [sheet, setSheet] = useState<{ open: boolean; track?: Track }>({
@@ -252,6 +256,10 @@ export function ArtistView({
           </span>
         </button>
       </div>
+
+      {/* Tout en bas : au moment où le fan a fini d'écouter, il est
+          exactement disposé à écouter quelqu'un d'autre. */}
+      <Suggestions items={suggestions} />
 
       <SupportSheet
         artist={artist}

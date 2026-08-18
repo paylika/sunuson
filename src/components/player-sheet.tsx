@@ -140,6 +140,10 @@ export function PlayerSheet() {
         }}
       />
 
+      {/* Trois zones : l'entête et le bouton Soutenir restent en place, seul
+          le milieu défile. Sans ça, la file d'attente ajoutée sous les
+          commandes poussait le contenu à 1062 px dans un écran de 812 : sur un
+          téléphone ordinaire, la fin de l'écran était simplement coupée. */}
       <div className="relative mx-auto flex h-dvh w-full max-w-[480px] flex-col px-5 pb-6 pt-4">
         {/* -------------------------------------------------------- entête */}
         <header className="flex items-center justify-between">
@@ -165,6 +169,7 @@ export function PlayerSheet() {
           </button>
         </header>
 
+        <div className="min-h-0 flex-1 overflow-y-auto">
         {/* ------------------------------------------------------ pochette */}
         <div className="mt-6">
           <PochetteGlissante
@@ -248,9 +253,10 @@ export function PlayerSheet() {
 
         {/* ------------------------------------------------------- la suite */}
         <FileDAttente queue={queue} index={index} goTo={goTo} />
+        </div>
 
-        {/* -------------------------------------------------------- soutiens */}
-        <div className="mt-auto pt-6">
+        {/* Le bouton qui rapporte de l'argent ne défile jamais. */}
+        <div className="shrink-0 pt-5">
           <SupportersStrip supporters={supporters} loading={loading} />
 
           <button

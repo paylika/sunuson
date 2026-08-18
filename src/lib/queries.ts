@@ -641,3 +641,58 @@ export async function getSupportsByUser(
     enAttente: r.status !== "paid",
   }));
 }
+
+/* ---------------------------------------------------------- suggestions */
+
+/**
+ * Des morceaux d'AUTRES artistes, pour la bande de découverte.
+ *
+ * Un fan arrive par le lien d'un rappeur et repart aussitôt : c'est le
+ * schéma normal ici, mais c'est aussi une occasion perdue. Une bande de
+ * pochettes en bas de page transforme une visite d'un artiste en découverte
+ * de trois.
+ *
+ * Les morceaux verrouillés sont écartés : proposer un inédit à quelqu'un qui
+ * découvre la plateforme, c'est lui montrer une porte fermée en guise
+ * d'accueil.
+ */
+export async function getSuggestions(
+  excludeArtistId: string,
+  limite = 12,
+): Promise<{ track: Track; artist: Artist }[]> {
+  const supabase = client();
+
+  const requete = (colonnes: string) =>
+    supabase
+      .from("tracks")
+      .select(colonnes)
+      .neq("artist_id", excludeArtistId)
+      .eq("locked", false)
+      .order("plays", { ascending: false })
+      .limit(limite)
+      .returns<TrackRow[]>();
+
+  let res = await requete(TRACK_COLS_PROJET);
+  if (res.error) res = await requete(TRACK_COLS);
+  if (res.error) return [];
+
+  const rows = res.data ?? [];
+  if (rows.length === 0) return [];
+
+  const artistRows = unwrap(
+    await supabase
+      .from("artists")
+      .select(ARTIST_COLS)
+      .in("id", [...new Set(rows.map((r) => r.artist_id))])
+      .returns<ArtistRow[]>(),
+  );
+
+  const parId = new Map(artistRows.map((a) => [a.id, toArtist(a)]));
+
+  return rows
+    .map((r) => {
+      const artist = parId.get(r.artist_id);
+      return artist ? { track: toTrack(r), artist } : null;
+    })
+    .filter((x): x is { track: Track; artist: Artist } => x !== null);
+}
