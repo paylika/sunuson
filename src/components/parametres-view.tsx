@@ -15,7 +15,8 @@ import {
 import { fcfa } from "@/lib/format";
 import type { Artist } from "@/lib/types";
 import { BackButton } from "./page-header";
-import { Avatar, cx, Glass, NameWithBadge } from "./ui";
+import { ProfilArtisteEditeur } from "./profil-artiste";
+import { Avatar, cx, Glass } from "./ui";
 import {
   ArrowUpRight,
   Check,
@@ -80,28 +81,32 @@ export function ParametresView({
         </Glass>
       </Bloc>
 
+      {/* L'identité vient d'abord : c'est ce qu'on cherche en ouvrant les
+          réglages, avant le lien et avant l'argent. */}
       {artist && (
-        <Bloc titre="Ma page publique">
+        <Bloc
+          titre="Ma page"
+          note="Ton nom d'artiste vient de ton compte et ne se modifie pas ici."
+        >
+          <ProfilArtisteEditeur artist={artist} />
+        </Bloc>
+      )}
+
+      {artist && (
+        <Bloc titre="Mon lien">
           <Link href={`/a/${artist.slug}`} className="block">
             <Glass className="flex items-center gap-3.5 rounded-[24px] px-4 py-3.5 transition active:scale-[.99]">
-              <Avatar
-                name={artist.name}
-                gradient={artist.gradient}
-                src={artist.avatarUrl}
-                size={44}
-              />
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-acid-500/10 text-acid-500">
+                <ArrowUpRight size={18} />
+              </span>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[14.5px] font-semibold">
-                  <NameWithBadge
-                    name={artist.name}
-                    verified={artist.verified}
-                  />
+                  Voir ma page
                 </div>
                 <div className="mt-0.5 truncate text-[11.5px] text-fg/40">
                   {APP_DOMAIN}/a/{artist.slug}
                 </div>
               </div>
-              <ArrowUpRight size={16} className="shrink-0 text-fg/30" />
             </Glass>
           </Link>
 
