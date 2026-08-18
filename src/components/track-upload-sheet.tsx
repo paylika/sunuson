@@ -2,14 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  createRelease,
-  createTrack,
-  findArtists,
-  type TypeProjet,
-} from "@/lib/actions";
+import { createRelease, createTrack, findArtists } from "@/lib/actions";
 import { deposer } from "@/lib/depot";
-import { MIN_SUPPORT } from "@/lib/config";
+import { MIN_SUPPORT, type TypeProjet } from "@/lib/config";
 import { fcfa, initials } from "@/lib/format";
 import { COVER_RULES, prepareCover, readAudioDuration } from "@/lib/storage";
 import type { Artist } from "@/lib/types";

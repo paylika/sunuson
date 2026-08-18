@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "// build": "NE JAMAIS pointer sur opennextjs-cloudflare : OpenNext appelle lui-même `npm run build` pour construire l'app Next.js, ce qui crée une récursion infinie jusqu'au timeout du CI.",
-    "prebuild": "node scripts/check-icons.mjs",
+    "prebuild": "node scripts/check-icons.mjs && node scripts/check-server-exports.mjs",
     "build": "next build",
     "cf:build": "opennextjs-cloudflare build",
     "deploy": "opennextjs-cloudflare deploy",

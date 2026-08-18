@@ -8,7 +8,13 @@ import {
   getTracksByIds,
   searchArtists,
 } from "./queries";
-import { MAX_SUPPORT, MIN_SUPPORT, type PaymentMethod } from "./config";
+import {
+  MAX_SUPPORT,
+  MIN_SUPPORT,
+  TYPES_PROJET,
+  type PaymentMethod,
+  type TypeProjet,
+} from "./config";
 import { communeValide } from "./senegal";
 import {
   AUDIO_BUCKET,
@@ -542,9 +548,6 @@ export async function deleteTrack(input: {
 }
 
 /* =============================================================== projets */
-
-export const TYPES_PROJET = ["ep", "mixtape", "album"] as const;
-export type TypeProjet = (typeof TYPES_PROJET)[number];
 
 /**
  * Publie un projet : plusieurs morceaux, une seule pochette, un seul geste.

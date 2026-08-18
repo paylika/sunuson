@@ -59,3 +59,14 @@ export const PAYMENT_METHODS: {
     tint: "#FF7900",
   },
 ];
+
+/**
+ * Natures de sortie, hors de actions.ts À DESSEIN.
+ *
+ * Un fichier marqué `"use server"` ne peut exporter QUE des fonctions
+ * asynchrones : y laisser une simple constante fait échouer toutes les Server
+ * Actions du fichier d'un coup, avec un message qui ne désigne pas le
+ * coupable. Les types s'effacent à la compilation et passent, pas les valeurs.
+ */
+export const TYPES_PROJET = ["ep", "mixtape", "album"] as const;
+export type TypeProjet = (typeof TYPES_PROJET)[number];
