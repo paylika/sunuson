@@ -274,6 +274,14 @@ export const RepeatOne = ({ className, size }: P) => (
   </svg>
 );
 
+/** Appareil photo — utilitaire, donc en trait comme les autres outils. */
+export const Camera = ({ className, size }: P) => (
+  <svg {...line(size)} className={className}>
+    <path d="M3.4 8.9a2 2 0 0 1 2-2h1.9l1.3-2.1h6.8l1.3 2.1h1.9a2 2 0 0 1 2 2v8.2a2 2 0 0 1-2 2H5.4a2 2 0 0 1-2-2V8.9Z" />
+    <circle cx="12" cy="13" r="3.4" />
+  </svg>
+);
+
 /**
  * Réglages — la tranche d'une console de mixage, pas un engrenage.
  *

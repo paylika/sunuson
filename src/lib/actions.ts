@@ -534,3 +534,40 @@ function revalidateAll(artistSlug?: string) {
   revalidatePath("/");
   revalidatePath("/dashboard");
 }
+
+/**
+ * Photo de profil d'un compte fan.
+ *
+ * Elle vit dans les métadonnées du compte Supabase, pas dans une table à
+ * part : un fan n'a rien d'autre à stocker que ça, et une table de profils
+ * imposerait une migration pour un seul champ. Les métadonnées sont
+ * modifiables par leur propriétaire — sans conséquence ici, puisque rien
+ * d'officiel ne dépend de cette image.
+ */
+export async function updateFanAvatar(
+  formData: FormData,
+): Promise<ActionResult> {
+  const user = await currentUser();
+  if (!user) return { ok: false, error: "Connecte-toi d'abord." };
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Aucun fichier reçu." };
+  }
+
+  const put = await putImage(file, `fans/${user.id}`, PHOTO_RULES);
+  if (!put.ok) return put;
+
+  // Par la session, jamais par la clé d'administration : on ne peut ainsi
+  // modifier que le compte connecté, quoi qu'arrive dans le formulaire.
+  const supabase = await supabaseSession();
+  const { error } = await supabase.auth.updateUser({
+    data: { avatar_key: put.key },
+  });
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/dashboard");
+  revalidatePath("/parametres");
+  return { ok: true };
+}

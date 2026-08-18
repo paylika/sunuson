@@ -1,9 +1,9 @@
-import { currentUser } from "@/lib/auth";
+import { viewer } from "@/lib/auth";
 import {
-  getArtistByUser,
   getBalance,
   getSupportsByArtist,
   getTracksByArtist,
+  imageUrl,
 } from "@/lib/queries";
 import { DashboardView } from "@/components/dashboard-view";
 import { EspaceFan, EspaceHeader, EspaceInvite } from "@/components/espace-view";
@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
  * pouvait publier en son nom. C'est la session qui décide maintenant.
  */
 export default async function EspacePage() {
-  const user = await currentUser();
+  const { user, artist } = await viewer();
 
   if (!user) {
     return (
@@ -29,12 +29,18 @@ export default async function EspacePage() {
     );
   }
 
-  const artist = await getArtistByUser(user.id);
-
   if (!artist) {
+    // La photo du fan vit dans les métadonnées du compte : rien à stocker
+    // ailleurs pour un seul champ.
+    const avatarKey = (user.user_metadata as { avatar_key?: string } | null)
+      ?.avatar_key;
+
     return (
       <Shell>
-        <EspaceFan email={user.email ?? ""} />
+        <EspaceFan
+          email={user.email ?? ""}
+          avatarUrl={imageUrl(avatarKey)}
+        />
       </Shell>
     );
   }

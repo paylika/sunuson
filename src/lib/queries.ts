@@ -19,7 +19,7 @@ import type { PaymentMethod } from "./config";
  * La base ne stocke que la clé de l'objet ; l'URL publique se compose ici.
  * Le jour où les images passent sur un autre CDN, seule cette fonction bouge.
  */
-function imageUrl(key: string | null | undefined): string | undefined {
+export function imageUrl(key: string | null | undefined): string | undefined {
   if (!key) return undefined;
   const base = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!base) return undefined;

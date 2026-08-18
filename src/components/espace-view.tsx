@@ -2,19 +2,19 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import { createArtistProfile } from "@/lib/actions";
+import { useRef, useState, useTransition } from "react";
+import { createArtistProfile, updateFanAvatar } from "@/lib/actions";
 import { APP_DOMAIN } from "@/lib/config";
 import { usePlaylist } from "./providers";
-import { Button, cx, Glass } from "./ui";
+import { Avatar, Button, cx, Glass } from "./ui";
 import { MarkTile } from "./logo";
 import {
   Bookmark,
+  Camera,
   ChevronRight,
   Play,
   Sliders,
   Spark,
-  UserIcon,
 } from "./icons";
 
 /**
@@ -100,7 +100,13 @@ export function EspaceInvite() {
  * besoin de sa playlist. Le reste de l'écran sert donc à l'inviter à passer de
  * l'autre côté, puisque c'est l'artiste qui fait vivre la plateforme.
  */
-export function EspaceFan({ email }: { email: string }) {
+export function EspaceFan({
+  email,
+  avatarUrl,
+}: {
+  email: string;
+  avatarUrl?: string;
+}) {
   const { ids, ready } = usePlaylist();
 
   return (
@@ -108,9 +114,7 @@ export function EspaceFan({ email }: { email: string }) {
       <EspaceHeader titre="Mon espace" sous={email} />
 
       <Glass className="flex items-center gap-3.5 rounded-[24px] px-4 py-3.5">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-fg/[.07] text-fg/50">
-          <UserIcon size={18} />
-        </span>
+        <PhotoFan email={email} avatarUrl={avatarUrl} />
         <div className="min-w-0 flex-1">
           <div className="text-[14.5px] font-semibold">Compte fan</div>
           <div className="mt-0.5 text-[11.5px] text-fg/40">
@@ -140,6 +144,83 @@ export function EspaceFan({ email }: { email: string }) {
 
       <DevenirArtiste />
     </>
+  );
+}
+
+/* ------------------------------------------------------------ la photo */
+
+/**
+ * Photo de profil du fan.
+ *
+ * Sans image, on retombe sur les initiales tirées de l'adresse — jamais sur
+ * une silhouette grise, qui donne à tous les comptes le même visage vide.
+ */
+function PhotoFan({
+  email,
+  avatarUrl,
+}: {
+  email: string;
+  avatarUrl?: string;
+}) {
+  const router = useRouter();
+  const champ = useRef<HTMLInputElement>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [envoi, setEnvoi] = useState(false);
+
+  // L'adresse sert de nom faute de mieux : « adbaecomx@gmail.com » donne AD,
+  // ce qui reste personnel là où une icône générique ne l'est pas.
+  const nom = email.split("@")[0] || "fan";
+
+  async function envoyer(file: File) {
+    setErreur(null);
+    setEnvoi(true);
+
+    const fd = new FormData();
+    fd.set("file", file);
+    const res = await updateFanAvatar(fd);
+
+    setEnvoi(false);
+    if (!res.ok) setErreur(res.error);
+    else router.refresh();
+  }
+
+  return (
+    <div className="relative shrink-0">
+      <Avatar name={nom} gradient={["#2a2d34", "#141619"]} src={avatarUrl} size={52} />
+
+      <button
+        onClick={() => champ.current?.click()}
+        disabled={envoi}
+        aria-label="Changer ma photo"
+        className="absolute -bottom-1 -right-1 grid h-7 w-7 place-items-center rounded-full grad-brand text-ink shadow-lg transition active:scale-90"
+      >
+        {envoi ? (
+          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-ink" />
+        ) : (
+          <Camera size={13} />
+        )}
+      </button>
+
+      <input
+        ref={champ}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          // Le champ est vidé pour que choisir deux fois la même image
+          // déclenche bien un second envoi.
+          e.target.value = "";
+          if (f) void envoyer(f);
+        }}
+      />
+
+      {erreur && (
+        <p className="absolute left-0 top-full mt-2 w-52 rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-[11px] leading-snug text-red-400">
+          {erreur}
+        </p>
+      )}
+    </div>
   );
 }
 

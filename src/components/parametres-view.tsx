@@ -32,10 +32,13 @@ export function ParametresView({
   email,
   artist,
   payout,
+  avatarUrl,
 }: {
   email: string;
   artist: Artist | null;
   payout: Payout | null;
+  /** Photo du compte fan. L'artiste, lui, a déjà la sienne sur sa page. */
+  avatarUrl?: string;
 }) {
   return (
     <>
@@ -47,11 +50,29 @@ export function ParametresView({
       </header>
 
       <Bloc titre="Compte">
-        <Ligne
-          Icon={UserIcon}
-          titre={email}
-          detail={artist ? "Compte artiste" : "Compte fan"}
-        />
+        <Glass className="flex items-center gap-3.5 rounded-[24px] px-4 py-3.5">
+          {artist ? (
+            <Avatar
+              name={artist.name}
+              gradient={artist.gradient}
+              src={artist.avatarUrl}
+              size={44}
+            />
+          ) : (
+            <Avatar
+              name={email.split("@")[0] || "fan"}
+              gradient={["#2a2d34", "#141619"]}
+              src={avatarUrl}
+              size={44}
+            />
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[14.5px] font-semibold">{email}</div>
+            <div className="mt-0.5 text-[11.5px] text-fg/40">
+              {artist ? "Compte artiste" : "Compte fan"}
+            </div>
+          </div>
+        </Glass>
       </Bloc>
 
       {artist && (
