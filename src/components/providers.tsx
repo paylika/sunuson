@@ -207,6 +207,14 @@ function PlayerProvider({ children }: { children: ReactNode }) {
       <audio
         ref={audioRef}
         src={track?.audioUrl}
+        // La répétition est confiée au navigateur plutôt qu'au code.
+        //
+        // Avec `onEnded`, il fallait remettre la lecture en route à la main —
+        // et ça ne marchait pas : `advance()` renvoyait le même index, donc
+        // l'état ne changeait pas, l'effet ne se rejouait pas et le morceau
+        // restait arrêté à la fin. `loop` reboucle sans coupure, et empêche
+        // `onEnded` de se déclencher, donc la file n'avance pas non plus.
+        loop={repeat}
         onTimeUpdate={(e) => setPosition(e.currentTarget.currentTime)}
         onEnded={advance}
         hidden
