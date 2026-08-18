@@ -2,13 +2,26 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createTrack, findArtists } from "@/lib/actions";
+import {
+  createRelease,
+  createTrack,
+  findArtists,
+  type TypeProjet,
+} from "@/lib/actions";
+import { deposer } from "@/lib/depot";
 import { MIN_SUPPORT } from "@/lib/config";
 import { fcfa, initials } from "@/lib/format";
 import { COVER_RULES, prepareCover, readAudioDuration } from "@/lib/storage";
 import type { Artist } from "@/lib/types";
 import { cx } from "./ui";
 import { Check, Close, Lock, Plus, Search, Spark, Upload } from "./icons";
+
+type Piste = {
+  id: string;
+  file: File;
+  titre: string;
+  duree: number;
+};
 
 type Guest = {
   /** Absent = invité hors plateforme : il est affiché, mais ne touche rien. */
@@ -35,6 +48,14 @@ export function TrackUploadSheet({
 }) {
   const router = useRouter();
 
+  // Un rappeur ne sort pas dix singles, il sort un projet. Lui faire répéter
+  // dix fois le même formulaire — même pochette, même prix, même déclaration
+  // de droits — est la façon la plus sûre de le perdre au troisième.
+  const [format, setFormat] = useState<"single" | "projet">("single");
+  const [typeProjet, setTypeProjet] = useState<TypeProjet>("ep");
+  const [pistes, setPistes] = useState<Piste[]>([]);
+  const [etape, setEtape] = useState<string | null>(null);
+
   const [title, setTitle] = useState("");
   const [label, setLabel] = useState(artist.label ?? "");
   const [audio, setAudio] = useState<File | null>(null);
@@ -53,13 +74,19 @@ export function TrackUploadSheet({
 
   const audioRef = useRef<HTMLInputElement>(null);
   const coverRef = useRef<HTMLInputElement>(null);
+  const pistesRef = useRef<HTMLInputElement>(null);
 
   const guestShare = guests.reduce((s, g) => s + g.share, 0);
   const myShare = 100 - guestShare;
   // Le fichier audio est exigé : une fiche sans son crée un morceau muet sur
   // une page que les fans voient déjà.
   const ready =
-    title.trim().length > 1 && !!audio && rights && myShare >= 0 && !pending;
+    !pending &&
+    rights &&
+    title.trim().length > 1 &&
+    (format === "single"
+      ? !!audio && myShare >= 0
+      : pistes.length >= 2 && pistes.every((p) => p.titre.trim().length > 0));
 
   useEffect(() => {
     if (!open) return;
@@ -104,38 +131,133 @@ export function TrackUploadSheet({
 
   function submit() {
     setError(null);
-    startTransition(async () => {
-      const fd = new FormData();
-      fd.set("artistId", artist.id);
-      fd.set("artistSlug", artist.slug);
-      fd.set("title", title);
-      fd.set("label", label);
-      fd.set("locked", locked ? "1" : "0");
-      fd.set("rightsOk", rights ? "1" : "0");
-      fd.set("supportMode", locked ? mode : "libre");
-      fd.set("supportAmount", amount);
-      fd.set(
-        "collaborators",
-        JSON.stringify(
-          guests.map((g) => ({
-            artistId: g.artistId,
-            name: g.name,
-            share: g.share,
-          })),
-        ),
-      );
-      if (cover) fd.set("cover", cover);
-      if (audio) fd.set("audio", audio);
-      fd.set("duration", String(duration));
+    setEtape(null);
 
-      const res = await createTrack(fd);
-      if (!res.ok) {
-        setError(res.error);
-        return;
+    startTransition(async () => {
+      // La pochette part d'abord : elle est commune à tout le projet, et
+      // échouer dessus après avoir monté dix morceaux serait cruel.
+      let coverKey: string | undefined;
+      if (cover) {
+        setEtape("Envoi de la pochette…");
+        const dep = await deposer(artist.id, "cover", cover);
+        if (!dep.ok) {
+          setError(dep.error);
+          setEtape(null);
+          return;
+        }
+        coverKey = dep.key;
       }
+
+      if (format === "single") {
+        setEtape("Envoi du son…");
+        const dep = await deposer(artist.id, "audio", audio!);
+        if (!dep.ok) {
+          setError(dep.error);
+          setEtape(null);
+          return;
+        }
+
+        const fd = new FormData();
+        fd.set("artistId", artist.id);
+        fd.set("artistSlug", artist.slug);
+        fd.set("title", title);
+        fd.set("label", label);
+        fd.set("locked", locked ? "1" : "0");
+        fd.set("rightsOk", rights ? "1" : "0");
+        fd.set("supportMode", locked ? mode : "libre");
+        fd.set("supportAmount", amount);
+        fd.set("duration", String(duration));
+        fd.set("audioKey", dep.key);
+        if (coverKey) fd.set("coverKey", coverKey);
+        fd.set(
+          "collaborators",
+          JSON.stringify(
+            guests.map((g) => ({
+              artistId: g.artistId,
+              name: g.name,
+              share: g.share,
+            })),
+          ),
+        );
+
+        const res = await createTrack(fd);
+        if (!res.ok) {
+          setError(res.error);
+          setEtape(null);
+          return;
+        }
+      } else {
+        // Un par un, jamais tous en parallèle : sur une connexion mobile,
+        // dix envois simultanés se gênent et finissent plus tard que dix
+        // envois successifs — et la progression devient illisible.
+        const deposes: { title: string; audioKey: string; duration: number }[] =
+          [];
+
+        for (let i = 0; i < pistes.length; i++) {
+          const p = pistes[i];
+          setEtape(`Envoi ${i + 1} / ${pistes.length} — ${p.titre}`);
+
+          const dep = await deposer(artist.id, "audio", p.file);
+          if (!dep.ok) {
+            setError(`${p.titre} : ${dep.error}`);
+            setEtape(null);
+            return;
+          }
+          deposes.push({
+            title: p.titre,
+            audioKey: dep.key,
+            duration: p.duree,
+          });
+        }
+
+        setEtape("Publication…");
+        const res = await createRelease({
+          artistId: artist.id,
+          artistSlug: artist.slug,
+          type: typeProjet,
+          title,
+          coverKey,
+          label,
+          locked,
+          supportMode: locked ? mode : "libre",
+          supportAmount: Number(amount) || 0,
+          rightsOk: rights,
+          tracks: deposes,
+        });
+
+        if (!res.ok) {
+          setError(res.error);
+          setEtape(null);
+          return;
+        }
+      }
+
+      setEtape(null);
       router.refresh();
       onClose();
     });
+  }
+
+  /** Ajoute des fichiers à la liste du projet, en lisant leur durée. */
+  async function ajouterPistes(files: FileList) {
+    const nouvelles: Piste[] = [...files].slice(0, 30).map((file) => ({
+      id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2)}`,
+      file,
+      // Le nom du fichier fait un titre acceptable neuf fois sur dix : on
+      // enlève l'extension et la numérotation qui traîne devant.
+      titre: file.name
+        .replace(/\.[^.]+$/, "")
+        .replace(/^\s*\d{1,2}\s*[-._)]\s*/, "")
+        .slice(0, 60),
+      duree: 0,
+    }));
+
+    setPistes((p) => [...p, ...nouvelles].slice(0, 30));
+
+    for (const n of nouvelles) {
+      const d = await readAudioDuration(n.file);
+      setPistes((p) => p.map((x) => (x.id === n.id ? { ...x, duree: d } : x)));
+    }
   }
 
   return (
@@ -152,13 +274,63 @@ export function TrackUploadSheet({
           </button>
           <div className="flex-1">
             <div className="text-[16px] font-bold leading-tight">
-              Nouveau son
+              {format === "single" ? "Nouveau son" : "Nouveau projet"}
             </div>
             <div className="text-[11.5px] text-fg/45">{artist.name}</div>
           </div>
         </header>
 
         <div className="flex-1 overflow-y-auto px-4 pb-10 pt-5">
+          {/* Le choix arrive avant tout le reste : il change ce qu'on demande
+              ensuite, et le découvrir après avoir rempli serait une punition. */}
+          <div className="mb-5 flex gap-1.5 rounded-full glass p-1.5">
+            {(
+              [
+                ["single", "Un son"],
+                ["projet", "Un projet"],
+              ] as const
+            ).map(([id, libelle]) => (
+              <button
+                key={id}
+                onClick={() => {
+                  setFormat(id);
+                  setError(null);
+                }}
+                className={cx(
+                  "flex-1 rounded-full py-2.5 text-[13.5px] font-semibold transition active:scale-[.98]",
+                  format === id ? "grad-brand text-ink" : "text-fg/50",
+                )}
+              >
+                {libelle}
+              </button>
+            ))}
+          </div>
+
+          {format === "projet" && (
+            <div className="mb-5 flex gap-2">
+              {(
+                [
+                  ["ep", "EP"],
+                  ["mixtape", "Mixtape"],
+                  ["album", "Album"],
+                ] as const
+              ).map(([id, libelle]) => (
+                <button
+                  key={id}
+                  onClick={() => setTypeProjet(id)}
+                  className={cx(
+                    "flex-1 rounded-2xl py-3 text-[13px] font-semibold transition active:scale-[.98]",
+                    typeProjet === id
+                      ? "bg-acid-500/15 text-acid-500 ring-1 ring-acid-500/40"
+                      : "glass text-fg/50",
+                  )}
+                >
+                  {libelle}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* ---------------------------------------------------- pochette */}
           <button
             onClick={() => coverRef.current?.click()}
@@ -195,6 +367,13 @@ export function TrackUploadSheet({
           )}
 
           {/* ------------------------------------------------------- audio */}
+          {format === "projet" ? (
+            <ListePistes
+              pistes={pistes}
+              setPistes={setPistes}
+              onAjouter={() => pistesRef.current?.click()}
+            />
+          ) : (
           <button
             onClick={() => audioRef.current?.click()}
             className="mt-6 flex w-full items-center gap-3.5 rounded-2xl border border-dashed border-fg/20 bg-fg/[.03] px-4 py-4 text-left transition active:scale-[.99]"
@@ -211,13 +390,18 @@ export function TrackUploadSheet({
               </span>
             </span>
           </button>
+          )}
 
           {/* ------------------------------------------------------ titres */}
-          <Field label="Titre du son">
+          <Field
+            label={format === "single" ? "Titre du son" : "Titre du projet"}
+          >
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ex. Wax Sa Dëgg"
+              placeholder={
+                format === "single" ? "Ex. Wax Sa Dëgg" : "Ex. Sa Waay Vol. 1"
+              }
               maxLength={60}
               className="w-full rounded-2xl glass px-4 py-3.5 text-[15px] font-medium outline-none placeholder:font-normal placeholder:text-fg/35"
             />
@@ -237,12 +421,20 @@ export function TrackUploadSheet({
           </Field>
 
           {/* -------------------------------------------------- featuring */}
-          <FeaturingPicker
-            artist={artist}
-            guests={guests}
-            setGuests={setGuests}
-            myShare={myShare}
-          />
+          {format === "single" ? (
+            <FeaturingPicker
+              artist={artist}
+              guests={guests}
+              setGuests={setGuests}
+              myShare={myShare}
+            />
+          ) : (
+            <p className="mt-4 rounded-2xl glass px-4 py-3 text-[11.5px] leading-relaxed text-fg/45">
+              Les featurings se déclarent morceau par morceau, donc pas ici. Tu
+              pourras publier les titres concernés en single et garder le reste
+              dans le projet.
+            </p>
+          )}
 
           {/* ------------------------------------------------ exclusivité */}
           <Field label="Accès">
@@ -377,20 +569,45 @@ export function TrackUploadSheet({
             disabled={!ready}
             className="h-13 w-full rounded-full grad-brand text-[15.5px] font-semibold text-ink glow-brand transition active:scale-[.98] disabled:opacity-40 disabled:shadow-none disabled:active:scale-100"
           >
-            {pending ? "Publication…" : "Publier le son"}
+            {/* La progression remplace le libellé : sur dix morceaux et une
+                connexion mobile, l'envoi dure, et un bouton muet laisse croire
+                que rien ne se passe. */}
+            {pending
+              ? (etape ?? "Publication…")
+              : format === "single"
+                ? "Publier le son"
+                : `Publier ${LIBELLE_PROJET[typeProjet]}`}
           </button>
 
           {!ready && !pending && (
             <p className="mt-2 text-center text-[11px] text-fg/40">
-              {title.trim().length < 2
-                ? "Il manque le titre du son."
-                : !rights
-                  ? "Coche la case des droits pour publier."
-                  : "Les parts dépassent 100 %."}
+              {manque({
+                format,
+                title,
+                audio,
+                pistes,
+                rights,
+                myShare,
+              })}
             </p>
           )}
         </footer>
       </div>
+
+      <input
+        ref={pistesRef}
+        type="file"
+        accept="audio/*"
+        multiple
+        hidden
+        onChange={(e) => {
+          const fs = e.target.files;
+          // Le champ est vidé pour qu'on puisse rechoisir les mêmes fichiers
+          // après en avoir retiré un de la liste.
+          if (fs && fs.length > 0) void ajouterPistes(fs);
+          e.target.value = "";
+        }}
+      />
 
       <input
         ref={audioRef}
@@ -433,6 +650,163 @@ export function TrackUploadSheet({
 }
 
 /* ============================================================== featuring */
+
+/**
+ * Les morceaux d'un projet.
+ *
+ * Le titre est prérempli avec le nom du fichier, débarrassé de son extension
+ * et de la numérotation qui traîne devant — « 03 - Sama Xol.mp3 » donne
+ * « Sama Xol ». C'est juste neuf fois sur dix, et corriger un mot est bien
+ * plus rapide que saisir dix titres.
+ */
+const LIBELLE_PROJET: Record<TypeProjet, string> = {
+  ep: "mon EP",
+  mixtape: "ma mixtape",
+  album: "mon album",
+};
+
+/** Ce qui bloque encore, dit dans l'ordre où l'artiste remplit l'écran. */
+function manque({
+  format,
+  title,
+  audio,
+  pistes,
+  rights,
+  myShare,
+}: {
+  format: "single" | "projet";
+  title: string;
+  audio: File | null;
+  pistes: Piste[];
+  rights: boolean;
+  myShare: number;
+}): string {
+  if (format === "projet") {
+    if (pistes.length < 2) return "Un projet demande au moins deux sons.";
+    if (pistes.some((p) => !p.titre.trim()))
+      return "Un des morceaux n'a pas de titre.";
+    if (title.trim().length < 2) return "Il manque le titre du projet.";
+  } else {
+    if (!audio) return "Il manque le fichier audio.";
+    if (title.trim().length < 2) return "Il manque le titre du son.";
+    if (myShare < 0) return "Les parts dépassent 100 %.";
+  }
+  if (!rights) return "Coche la case des droits pour publier.";
+  return "";
+}
+
+function ListePistes({
+  pistes,
+  setPistes,
+  onAjouter,
+}: {
+  pistes: Piste[];
+  setPistes: React.Dispatch<React.SetStateAction<Piste[]>>;
+  onAjouter: () => void;
+}) {
+  function deplacer(index: number, sens: -1 | 1) {
+    const cible = index + sens;
+    if (cible < 0 || cible >= pistes.length) return;
+    setPistes((p) => {
+      const copie = [...p];
+      [copie[index], copie[cible]] = [copie[cible], copie[index]];
+      return copie;
+    });
+  }
+
+  return (
+    <div className="mt-6">
+      <button
+        onClick={onAjouter}
+        className="flex w-full items-center gap-3.5 rounded-2xl border border-dashed border-fg/20 bg-fg/[.03] px-4 py-4 text-left transition active:scale-[.99]"
+      >
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl grad-brand text-ink">
+          <Plus size={18} />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-[13.5px] font-semibold">
+            {pistes.length === 0
+              ? "Choisir les sons du projet"
+              : "Ajouter d'autres sons"}
+          </span>
+          <span className="block text-[11px] text-fg/40">
+            {pistes.length === 0
+              ? "Sélectionne-les tous d'un coup"
+              : `${pistes.length} son${pistes.length > 1 ? "s" : ""} · deux au minimum`}
+          </span>
+        </span>
+      </button>
+
+      {pistes.length > 0 && (
+        <div className="mt-3 space-y-2">
+          {pistes.map((p, i) => (
+            <div
+              key={p.id}
+              className="flex items-center gap-2.5 rounded-2xl glass px-3 py-2.5"
+            >
+              <span className="w-5 shrink-0 text-center text-[12px] font-bold tabular-nums text-fg/30">
+                {i + 1}
+              </span>
+
+              <div className="min-w-0 flex-1">
+                <input
+                  value={p.titre}
+                  onChange={(e) =>
+                    setPistes((liste) =>
+                      liste.map((x) =>
+                        x.id === p.id
+                          ? { ...x, titre: e.target.value.slice(0, 60) }
+                          : x,
+                      ),
+                    )
+                  }
+                  placeholder="Titre du morceau"
+                  className="w-full bg-transparent text-[13.5px] font-medium outline-none placeholder:text-fg/30"
+                />
+                <div className="mt-0.5 truncate text-[10.5px] text-fg/35">
+                  {p.duree > 0
+                    ? `${Math.floor(p.duree / 60)} min ${String(p.duree % 60).padStart(2, "0")} · `
+                    : ""}
+                  {(p.file.size / 1024 / 1024).toFixed(1)} Mo
+                </div>
+              </div>
+
+              {/* L'ordre compte sur un projet : c'est la tracklist. */}
+              <div className="flex shrink-0 flex-col">
+                <button
+                  onClick={() => deplacer(i, -1)}
+                  disabled={i === 0}
+                  aria-label="Monter"
+                  className="px-1.5 text-[11px] text-fg/35 disabled:opacity-20"
+                >
+                  ▲
+                </button>
+                <button
+                  onClick={() => deplacer(i, 1)}
+                  disabled={i === pistes.length - 1}
+                  aria-label="Descendre"
+                  className="px-1.5 text-[11px] text-fg/35 disabled:opacity-20"
+                >
+                  ▼
+                </button>
+              </div>
+
+              <button
+                onClick={() =>
+                  setPistes((liste) => liste.filter((x) => x.id !== p.id))
+                }
+                aria-label="Retirer"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-fg/25 active:scale-90"
+              >
+                <Close size={13} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function FeaturingPicker({
   artist,

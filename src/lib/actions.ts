@@ -152,41 +152,6 @@ async function putImage(
   return { ok: true, key };
 }
 
-/**
- * Dépose le fichier audio et renvoie sa clé.
- *
- * Bucket distinct des images : les deux n'ont ni le même poids, ni le même
- * profil de trafic, et le jour où l'audio partira sur Cloudflare R2 pour
- * l'egress gratuit, il partira seul.
- */
-async function putAudio(
-  file: File,
-  artistId: string,
-): Promise<{ ok: true; key: string } | { ok: false; error: string }> {
-  // Le type MIME peut être vide selon le navigateur et le système de
-  // fichiers : on ne refuse alors pas, on laisse passer et on encode en mp3.
-  if (file.type && !AUDIO_RULES.types.includes(file.type as never)) {
-    return { ok: false, error: "Format audio non reconnu. Essaie un MP3." };
-  }
-  if (file.size > AUDIO_RULES.maxBytes) {
-    return {
-      ok: false,
-      error: `Fichier trop lourd (${Math.round(file.size / 1024 / 1024)} Mo). Maximum ${Math.round(AUDIO_RULES.maxBytes / 1024 / 1024)} Mo.`,
-    };
-  }
-
-  const key = `${artistId}/${crypto.randomUUID()}.${audioExtensionFor(file.type)}`;
-  const { error } = await supabaseAdmin()
-    .storage.from(AUDIO_BUCKET)
-    .upload(key, await file.arrayBuffer(), {
-      contentType: file.type || "audio/mpeg",
-      upsert: false,
-    });
-
-  if (error) return { ok: false, error: error.message };
-  return { ok: true, key };
-}
-
 /** Texte du profil : bio, ville, label. */
 export async function updateArtistProfile(input: {
   artistId: string;
@@ -242,6 +207,77 @@ export async function updateArtistImage(
 
   revalidateAll(slug);
   return { ok: true };
+}
+
+/* ============================================================== dépôts */
+
+export type Depot =
+  | { ok: true; url: string; key: string }
+  | { ok: false; error: string };
+
+/**
+ * Autorise le navigateur à déposer UN fichier, directement dans le stockage.
+ *
+ * Le fichier ne passe plus par le serveur, et c'est une nécessité, pas une
+ * optimisation : une Server Action de Next.js est plafonnée à 1 Mo. Un MP3 de
+ * quatre minutes en fait quatre. Faire transiter l'audio par le Worker le
+ * ferait échouer, et ferait payer deux fois la bande passante.
+ *
+ * Le serveur ne cède qu'une autorisation d'écriture sur un chemin qu'il
+ * choisit lui-même, après avoir vérifié que l'artiste appartient au compte
+ * connecté. Le navigateur ne voit jamais la clé de service.
+ */
+export async function signerDepot(input: {
+  artistId: string;
+  kind: "audio" | "cover";
+  mime: string;
+}): Promise<Depot> {
+  const user = await currentUser();
+  if (!user) return { ok: false, error: "Connecte-toi d'abord." };
+
+  const admin = supabaseAdmin();
+
+  const { data: artist } = await admin
+    .from("artists")
+    .select("id")
+    .eq("id", input.artistId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!artist) return { ok: false, error: "Cet artiste n'est pas le tien." };
+
+  const audio = input.kind === "audio";
+
+  if (audio) {
+    if (input.mime && !AUDIO_RULES.types.includes(input.mime as never)) {
+      return { ok: false, error: "Format audio non reconnu. Essaie un MP3." };
+    }
+  } else if (!COVER_RULES.types.includes(input.mime as never)) {
+    return { ok: false, error: "Format d'image non accepté." };
+  }
+
+  const bucket = audio ? AUDIO_BUCKET : COVERS_BUCKET;
+  const key = audio
+    ? `${input.artistId}/${crypto.randomUUID()}.${audioExtensionFor(input.mime)}`
+    : `tracks/${input.artistId}/${crypto.randomUUID()}.${extensionFor(input.mime)}`;
+
+  const { data, error } = await admin.storage
+    .from(bucket)
+    .createSignedUploadUrl(key);
+
+  if (error || !data) {
+    return { ok: false, error: error?.message ?? "Dépôt impossible." };
+  }
+
+  // L'API renvoie parfois un chemin relatif, parfois une adresse complète
+  // selon la version. On rend toujours une adresse absolue : le navigateur ne
+  // connaît pas l'adresse de la base et n'a pas à la deviner.
+  const base = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
+  const url = data.signedUrl.startsWith("http")
+    ? data.signedUrl
+    : `${base}/storage/v1${data.signedUrl}`;
+
+  return { ok: true, url, key };
 }
 
 /* ================================================================== sons */
@@ -313,24 +349,16 @@ export async function createTrack(formData: FormData): Promise<ActionResult> {
     return { ok: false, error: "Tu ne peux pas t'inviter sur ton propre son." };
   }
 
-  let coverKey: string | null = null;
-  const cover = formData.get("cover");
-  if (cover instanceof File && cover.size > 0) {
-    const put = await putImage(cover, `tracks/${artistId}`, COVER_RULES);
-    if (!put.ok) return put;
-    coverKey = put.key;
-  }
+  // Les fichiers sont déjà dans le stockage : le navigateur les y a déposés
+  // avec une autorisation signée. Ne circulent ici que leurs clés.
+  const coverKey = cleKey(String(formData.get("coverKey") ?? ""));
+  const audioKey = cleKey(String(formData.get("audioKey") ?? ""));
 
-  // Sans fichier audio, la fiche existe mais le morceau reste muet : autant
-  // le dire ici plutôt que de laisser l'artiste le découvrir en cliquant sur
-  // lecture depuis la page que ses fans voient déjà.
-  const audio = formData.get("audio");
-  if (!(audio instanceof File) || audio.size === 0) {
+  // Sans fichier audio, la fiche existe mais le morceau reste muet, sur une
+  // page que les fans voient déjà.
+  if (!audioKey) {
     return { ok: false, error: "Choisis le fichier audio du morceau." };
   }
-
-  const son = await putAudio(audio, artistId);
-  if (!son.ok) return son;
 
   // Durée mesurée par le navigateur. 0 si son lecteur n'a pas su la lire : le
   // morceau reste écoutable, seule la durée affichée manque.
@@ -357,7 +385,7 @@ export async function createTrack(formData: FormData): Promise<ActionResult> {
       title,
       label: label || null,
       cover_key: coverKey,
-      audio_key: son.key,
+      audio_key: audioKey,
       locked,
       rights_ok: true,
       duration,
@@ -513,6 +541,133 @@ export async function deleteTrack(input: {
   return { ok: true };
 }
 
+/* =============================================================== projets */
+
+export const TYPES_PROJET = ["ep", "mixtape", "album"] as const;
+export type TypeProjet = (typeof TYPES_PROJET)[number];
+
+/**
+ * Publie un projet : plusieurs morceaux, une seule pochette, un seul geste.
+ *
+ * Un rappeur ne sort pas dix singles, il sort un projet. L'obliger à répéter
+ * dix fois le même formulaire — même pochette, même prix, même déclaration de
+ * droits — était la façon la plus sûre de le faire abandonner au troisième.
+ *
+ * Les fichiers sont déjà déposés quand on arrive ici : le navigateur les a
+ * envoyés un par un au stockage, et ne transmet que les clés. Sans ça, dix
+ * morceaux feraient quarante mégaoctets dans une Server Action plafonnée à un.
+ */
+export async function createRelease(input: {
+  artistId: string;
+  artistSlug: string;
+  type: TypeProjet;
+  title: string;
+  coverKey?: string;
+  label?: string;
+  locked: boolean;
+  supportMode: "libre" | "fixe";
+  supportAmount: number;
+  rightsOk: boolean;
+  tracks: { title: string; audioKey: string; duration: number }[];
+}): Promise<ActionResult> {
+  const user = await currentUser();
+  if (!user) return { ok: false, error: "Connecte-toi d'abord." };
+
+  if (!TYPES_PROJET.includes(input.type)) {
+    return { ok: false, error: "Type de projet inconnu." };
+  }
+
+  const titreProjet = (input.title || "").trim().slice(0, 60);
+  if (titreProjet.length < 2) {
+    return { ok: false, error: "Donne un titre à ton projet." };
+  }
+  if (!input.rightsOk) {
+    return { ok: false, error: "Il faut confirmer que tu détiens les droits." };
+  }
+
+  const admin = supabaseAdmin();
+
+  const { data: artist } = await admin
+    .from("artists")
+    .select("id, slug")
+    .eq("id", input.artistId)
+    .eq("user_id", user.id)
+    .maybeSingle<{ id: string; slug: string }>();
+
+  if (!artist) return { ok: false, error: "Cet artiste n'est pas le tien." };
+
+  // Deux morceaux au minimum : en dessous, c'est un single, et le distinguer
+  // ne servirait qu'à créer des projets d'un titre sur la page publique.
+  const morceaux = input.tracks
+    .map((t) => ({
+      title: (t.title || "").trim().slice(0, 60),
+      audioKey: cleKey(t.audioKey),
+      duration: Math.max(0, Math.min(3600, Math.round(t.duration) || 0)),
+    }))
+    .filter((t) => t.title.length >= 1 && t.audioKey);
+
+  if (morceaux.length < 2) {
+    return {
+      ok: false,
+      error: "Un projet demande au moins deux morceaux avec leur fichier.",
+    };
+  }
+  if (morceaux.length > 30) {
+    return { ok: false, error: "Trente morceaux au maximum." };
+  }
+
+  const supportAmount = Math.round(Number(input.supportAmount) || 0);
+  if (input.locked && input.supportMode === "fixe") {
+    if (supportAmount < MIN_SUPPORT || supportAmount > MAX_SUPPORT) {
+      return {
+        ok: false,
+        error: `Un prix fixe doit valoir au moins ${MIN_SUPPORT} FCFA.`,
+      };
+    }
+  }
+
+  const coverKey = cleKey(String(input.coverKey ?? ""));
+  const releaseId = crypto.randomUUID();
+  const label = (input.label || "").trim().slice(0, 60) || null;
+
+  const { data: last } = await admin
+    .from("tracks")
+    .select("position")
+    .eq("artist_id", artist.id)
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const depart = (last?.position ?? 0) + 1;
+
+  // Une seule insertion pour tout le projet : dix appels séparés pourraient
+  // s'arrêter au sixième et laisser un demi-projet publié.
+  const { error } = await admin.from("tracks").insert(
+    morceaux.map((t, i) => ({
+      artist_id: artist.id,
+      title: t.title,
+      label,
+      cover_key: coverKey,
+      audio_key: t.audioKey,
+      duration: t.duration,
+      locked: input.locked,
+      rights_ok: true,
+      support_mode: input.locked ? input.supportMode : "libre",
+      support_amount:
+        input.locked && input.supportMode === "fixe" ? supportAmount : null,
+      position: depart + i,
+      release_type: input.type,
+      release_title: titreProjet,
+      release_id: releaseId,
+    })),
+  );
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidateAll(artist.slug);
+  return { ok: true };
+}
+
 /* ================================================================ compte */
 
 /**
@@ -652,6 +807,19 @@ function unwrapOrNull<T>(res: { data: T | null; error: unknown }): T | null {
 }
 
 /* ---------------------------------------------------------------------- */
+
+/**
+ * Une clé de stockage venue du navigateur.
+ *
+ * Elle a été produite par signerDepot, mais rien n'empêche de renvoyer autre
+ * chose : on refuse donc tout ce qui remonte l'arborescence ou ne ressemble
+ * pas à un chemin d'objet.
+ */
+function cleKey(v: string): string | null {
+  const propre = v.trim();
+  if (!propre || propre.includes("..") || propre.startsWith("/")) return null;
+  return /^[A-Za-z0-9/_.-]{8,200}$/.test(propre) ? propre : null;
+}
 
 /** Les montants apparaissent sur les quatre écrans : tout se rafraîchit. */
 function revalidateAll(artistSlug?: string) {

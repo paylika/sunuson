@@ -67,6 +67,12 @@ export type Track = {
   supportMode: SupportMode;
   /** Prix imposé, uniquement quand supportMode vaut 'fixe'. */
   supportAmount?: number;
+  /** Nature de la sortie. « single » pour un morceau isolé. */
+  releaseType?: "single" | "ep" | "mixtape" | "album";
+  /** Titre du projet dont il fait partie. Absent pour un single. */
+  releaseTitle?: string;
+  /** Identifiant partagé par les morceaux d'un même projet. */
+  releaseId?: string;
   /** Invités, avec leur part. Vide sur un morceau solo. */
   collaborators: Collaborator[];
 };

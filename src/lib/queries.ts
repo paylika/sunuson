@@ -63,6 +63,9 @@ function toArtist(r: ArtistRow): Artist {
 type TrackRow = {
   id: string;
   artist_id: string;
+  release_type?: string | null;
+  release_title?: string | null;
+  release_id?: string | null;
   title: string;
   duration: number;
   plays: number;
@@ -77,6 +80,11 @@ type TrackRow = {
 
 const TRACK_COLS =
   "id, artist_id, title, duration, plays, released_at, audio_key, cover_key, label, locked, support_mode, support_amount";
+
+// Les colonnes de projet arrivent par la migration 006. Les demander avant
+// qu'elle soit jouée ferait échouer toute lecture de morceau — donc les pages
+// d'artistes et la playlist. On les demande à part, avec repli.
+const TRACK_COLS_PROJET = `${TRACK_COLS}, release_type, release_title, release_id`;
 
 /**
  * La base ne stocke que la clé ; l'URL publique se compose ici.
@@ -111,6 +119,10 @@ function toTrack(r: TrackRow): Track {
     locked: r.locked,
     supportMode: r.support_mode === "fixe" ? "fixe" : "libre",
     supportAmount: r.support_amount ?? undefined,
+    releaseType:
+      (r.release_type as Track["releaseType"] | undefined) ?? "single",
+    releaseTitle: r.release_title ?? undefined,
+    releaseId: r.release_id ?? undefined,
     collaborators: [],
   };
 }
@@ -294,17 +306,20 @@ export async function getPayoutSettings(
 /* -------------------------------------------------------------------- sons */
 
 export async function getTracksByArtist(artistId: string): Promise<Track[]> {
-  const supabase = client();
-  const rows = unwrap(
-    await supabase
+  const requete = (colonnes: string) =>
+    client()
       .from("tracks")
-      .select(TRACK_COLS)
+      .select(colonnes)
       .eq("artist_id", artistId)
       .order("position")
-      .returns<TrackRow[]>(),
-  );
+      .returns<TrackRow[]>();
 
-  const tracks = rows.map(toTrack);
+  // Avec les colonnes de projet si la migration 006 est passée, sans elles
+  // sinon : la page d'un artiste doit s'afficher dans tous les cas.
+  let res = await requete(TRACK_COLS_PROJET);
+  if (res.error) res = await requete(TRACK_COLS);
+
+  const tracks = unwrap(res).map(toTrack);
   const collabs = await collaboratorsFor(tracks.map((t) => t.id));
   for (const t of tracks) t.collaborators = collabs.get(t.id) ?? [];
   return tracks;
@@ -418,13 +433,18 @@ export async function getTracksByIds(
   if (ids.length === 0) return [];
 
   const supabase = client();
-  const rows = unwrap(
-    await supabase
+
+  const parIds = (colonnes: string) =>
+    supabase
       .from("tracks")
-      .select(TRACK_COLS)
+      .select(colonnes)
       .in("id", ids.slice(0, 200))
-      .returns<TrackRow[]>(),
-  );
+      .returns<TrackRow[]>();
+
+  let resTracks = await parIds(TRACK_COLS_PROJET);
+  if (resTracks.error) resTracks = await parIds(TRACK_COLS);
+
+  const rows = unwrap(resTracks);
   if (rows.length === 0) return [];
 
   const artistRows = unwrap(
