@@ -19,7 +19,8 @@ import { compact, duration, fcfa, timeAgo } from "@/lib/format";
 import { PHOTO_RULES } from "@/lib/storage";
 import type { Balance } from "@/lib/queries";
 import { grouperSoutiens } from "@/lib/soutiens";
-import { REGIONS, regionDe } from "@/lib/senegal";
+import { regionDe } from "@/lib/senegal";
+import { ChoixLieu } from "./choix-lieu";
 import type { Artist, Support, Track } from "@/lib/types";
 import { ArtistView } from "./artist-view";
 import { TrackUploadSheet } from "./track-upload-sheet";
@@ -467,66 +468,6 @@ function MesSoutiens({ supports }: { supports: Support[] }) {
   );
 }
 
-/* ---------------------------------------------------------- Foy Tewal */
-
-/**
- * Région puis quartier, avec les menus natifs du téléphone.
- *
- * Le même couple qu'à l'inscription : deux vocabulaires ou deux mécaniques
- * pour un seul réglage donneraient l'impression de deux champs différents.
- */
-function SelectFoyTewal({
-  region,
-  city,
-  surRegion,
-  surVille,
-}: {
-  region: string;
-  city: string;
-  surRegion: (v: string) => void;
-  surVille: (v: string) => void;
-}) {
-  const communes = REGIONS.find((r) => r.nom === region)?.communes ?? [];
-
-  const style =
-    "w-full appearance-none rounded-2xl glass px-4 py-3.5 pr-8 text-[14px] outline-none";
-
-  return (
-    <>
-      <select
-        value={region}
-        onChange={(e) => surRegion(e.target.value)}
-        className={cx(style, !region && "text-fg/35")}
-      >
-        <option value="" className="bg-surface text-fg">
-          Région
-        </option>
-        {REGIONS.map((r) => (
-          <option key={r.nom} value={r.nom} className="bg-surface text-fg">
-            {r.nom}
-          </option>
-        ))}
-      </select>
-
-      <select
-        value={city}
-        onChange={(e) => surVille(e.target.value)}
-        disabled={!region}
-        className={cx(style, !city && "text-fg/35", !region && "opacity-40")}
-      >
-        <option value="" className="bg-surface text-fg">
-          {region ? "Quartier" : "Région d'abord"}
-        </option>
-        {communes.map((c) => (
-          <option key={c} value={c} className="bg-surface text-fg">
-            {c}
-          </option>
-        ))}
-      </select>
-    </>
-  );
-}
-
 /* ========================================================= profil artiste */
 
 function ProfileEditor({ artist }: { artist: Artist }) {
@@ -701,14 +642,11 @@ function ProfileFields({ artist }: { artist: Artist }) {
 
       {/* Foy Tewal se choisit, ici aussi. Un champ libre dans l'atelier
           suffirait à casser ce que la liste fermée protège à l'inscription. */}
-      <div className="mt-2.5 grid grid-cols-2 gap-2.5">
-        <SelectFoyTewal
+      <div className="mt-2.5">
+        <ChoixLieu
           region={region}
-          city={city}
-          surRegion={(r) => {
-            setRegion(r);
-            setCity("");
-          }}
+          ville={city}
+          surRegion={setRegion}
           surVille={setCity}
         />
       </div>
