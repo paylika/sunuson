@@ -1,25 +1,24 @@
 /**
  * Comment le fan se connecte.
  *
- *   "lien" — Supabase envoie un lien cliquable. Fonctionne sans rien
- *            configurer, avec le modèle de courriel par défaut.
- *   "code" — six chiffres à saisir. Plus fiable sur mobile : un lien ouvert
- *            depuis l'application de messagerie atterrit souvent dans un
- *            autre navigateur, et la session se crée au mauvais endroit.
+ *   "motdepasse" — adresse et mot de passe, la méthode que tout le monde
+ *                  connaît. Aucun courriel n'est nécessaire À CONDITION de
+ *                  décocher « Confirm email » dans Supabase (Authentication →
+ *                  Providers → Email). Sans ça, l'inscription envoie quand
+ *                  même un courriel de validation et on retombe sur la limite
+ *                  d'envois du serveur intégré.
+ *   "code"       — six chiffres reçus par courriel. Le plus fiable sur mobile,
+ *                  mais exige `{{ .Token }}` dans le modèle « Magic Link ».
+ *   "lien"       — lien cliquable. Le moins fiable : l'adresse de retour doit
+ *                  être en liste blanche, et un lien ouvert depuis Gmail crée
+ *                  la session dans le navigateur interne de l'application.
  *
- * On est sur "code", et c'est le bon défaut ici. Le lien a trois façons
- * d'échouer qui n'existent pas avec un code : l'adresse de retour doit être
- * inscrite dans la liste blanche Supabase (donc chaque nouvelle URL casse la
- * connexion), le lien ouvert depuis Gmail atterrit dans le navigateur interne
- * de l'application et la session se crée là plutôt que dans le vrai
- * navigateur, et il faut ouvrir le message sur le téléphone qui a fait la
- * demande. Le code se tape dans la page déjà ouverte : rien de tout ça.
- *
- * Il exige une seule chose : que le modèle de courriel « Magic Link » de
- * Supabase contienne `{{ .Token }}`. Sans ce jeton, le message part avec un
- * lien et l'écran attend un code qui n'arrive jamais.
+ * Le mot de passe a un défaut à connaître : « mot de passe oublié » passe
+ * forcément par un courriel. Tant qu'il n'y a pas de SMTP externe, un compte
+ * dont le mot de passe est perdu est un compte perdu. C'est tenable le temps
+ * des essais, pas une fois les premiers artistes inscrits.
  */
-export const AUTH_METHOD: "lien" | "code" = "code";
+export const AUTH_METHOD: "motdepasse" | "code" | "lien" = "motdepasse";
 
 /** Réglages produit. */
 export const APP_NAME = "Amplifan";
