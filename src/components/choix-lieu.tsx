@@ -1,22 +1,28 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { COMMUNES, REGIONS, regionDe } from "@/lib/senegal";
+import { COMMUNES, REGIONS, regionDe, type Commune } from "@/lib/senegal";
 import { cx, Glass } from "./ui";
 import { Check, Close, Search } from "./icons";
 
 /**
- * Foy Tewal : une liste fermée qu'on peut taper.
+ * Foy Tewal : une liste fermée, affichée en entier, qu'on peut filtrer en
+ * tapant.
  *
- * Le menu déroulant seul obligeait à faire défiler cinquante-six quartiers au
- * pouce pour en trouver un dont on connaît déjà le nom. Le champ libre, lui,
- * produisait « pikine », « Pikine » et « PIKINE Dakar » pour un seul endroit.
+ * Trois exigences qui se contredisent, et qu'il fallait tenir ensemble :
  *
- * On garde donc la liste — le serveur la fait respecter — mais on la cherche
- * en tapant. Trois lettres suffisent, et la recherche porte sur TOUS les
- * quartiers même quand aucune région n'est choisie : quelqu'un de Thiaroye
- * tape « thia », il n'a pas à savoir que Thiaroye est dans Pikine. La région
- * se remplit alors toute seule.
+ *  — fermée, parce qu'un champ libre donne « pikine », « Pikine » et « PIKINE
+ *    Dakar » pour un seul endroit, et que le filtre de Découvrir n'y survit
+ *    pas ;
+ *  — affichée, parce qu'un rappeur veut voir les quartiers de sa région pour
+ *    reconnaître le sien, pas deviner comment il s'écrit ici ;
+ *  — tapable, parce que la région de Dakar compte cinquante-quatre quartiers
+ *    et que les faire défiler au pouce pour en trouver un dont on connaît déjà
+ *    le nom est une punition.
+ *
+ * D'où : la région se choisit dans un menu (quatorze entrées, rien à
+ * chercher), puis TOUS ses quartiers s'affichent, et le champ de recherche les
+ * réduit à mesure qu'on écrit.
  */
 export function ChoixLieu({
   region,
@@ -32,27 +38,28 @@ export function ChoixLieu({
   const [q, setQ] = useState("");
   const champ = useRef<HTMLInputElement>(null);
 
-  const communesDeLaRegion =
-    REGIONS.find((r) => r.nom === region)?.communes ?? [];
+  const communesDeLaRegion = useMemo(
+    () => REGIONS.find((r) => r.nom === region)?.communes ?? [],
+    [region],
+  );
 
   const resultats = useMemo(() => {
     const aiguille = sansAccent(q);
 
-    // Sans recherche, on propose les quartiers de la région choisie. Sans
-    // région non plus, on ne déverse pas cinquante-six lignes : on attend.
+    // Région choisie sans recherche : on montre tout. C'est le comportement
+    // attendu d'une liste — on la parcourt des yeux avant de taper.
     if (!aiguille) return region ? communesDeLaRegion : [];
 
+    // La recherche porte sur tous les quartiers quand aucune région n'est
+    // choisie : quelqu'un de Thiaroye tape « thia » sans avoir à savoir que
+    // Thiaroye dépend de Pikine, lui-même dans la région de Dakar.
     const bassin = region ? communesDeLaRegion : COMMUNES;
-    return bassin
-      .filter((c) => sansAccent(c).includes(aiguille))
-      .slice(0, 12);
+    return bassin.filter((c) => sansAccent(c.nom).includes(aiguille));
   }, [q, region, communesDeLaRegion]);
 
-  function choisir(commune: string) {
-    surVille(commune);
-    // La région suit le quartier, jamais l'inverse : c'est le quartier que
-    // l'artiste connaît.
-    const r = regionDe(commune);
+  function choisir(c: Commune) {
+    surVille(c.nom);
+    const r = regionDe(c.nom);
     if (r && r !== region) surRegion(r);
     setQ("");
     champ.current?.blur();
@@ -61,8 +68,8 @@ export function ChoixLieu({
   return (
     <div>
       <div className="grid grid-cols-2 gap-2">
-        {/* Dix-neuf régions : le menu natif reste le bon outil, il n'y a rien
-            à chercher là-dedans. */}
+        {/* Quatorze régions et la diaspora : le menu natif est le bon outil,
+            il n'y a rien à chercher là-dedans. */}
         <div className="relative">
           <select
             value={region}
@@ -89,9 +96,9 @@ export function ChoixLieu({
         </div>
 
         {/* Le quartier retenu s'affiche comme un choix fait, pas comme du
-            texte saisi : on ne peut plus le modifier lettre par lettre, on le
-            retire et on recommence. C'est ce qui garantit que la valeur
-            envoyée vient bien de la liste. */}
+            texte saisi : on le retire pour en changer, on ne le corrige pas
+            lettre par lettre. C'est ce qui garantit que la valeur envoyée
+            vient bien de la liste. */}
         {ville ? (
           <button
             onClick={() => {
@@ -120,39 +127,50 @@ export function ChoixLieu({
                   choisir(resultats[0]);
                 }
               }}
-              placeholder="Quartier"
+              placeholder={region ? "Chercher" : "Quartier"}
               className="w-full bg-transparent text-[14.5px] outline-none placeholder:text-fg/30"
             />
           </div>
         )}
       </div>
 
-      {/* --------------------------------------------------------- résultats */}
+      {/* --------------------------------------------------------- la liste */}
       {!ville && (q.trim() || region) && (
         <Glass className="mt-2 overflow-hidden rounded-2xl">
           {resultats.length === 0 ? (
             <p className="px-4 py-3.5 text-[12.5px] text-fg/45">
-              Aucun quartier ne correspond. Écris-nous s&apos;il manque.
+              Aucun quartier ne correspond. Dis-le-nous s&apos;il manque.
             </p>
           ) : (
-            <div className="max-h-56 overflow-y-auto divide-y divide-fg/[.06]">
-              {resultats.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => choisir(c)}
-                  className="flex w-full items-center justify-between px-4 py-3 text-left transition active:bg-fg/[.06]"
-                >
-                  <span className="text-[14px]">{c}</span>
-                  {/* La région n'apparaît que si elle n'est pas déjà choisie :
-                      la répéter à chaque ligne serait du bruit. */}
-                  {!region && (
-                    <span className="shrink-0 text-[11px] text-fg/35">
-                      {regionDe(c)}
+            <>
+              {region && !q.trim() && (
+                <p className="border-b border-fg/[.06] px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-fg/30">
+                  {resultats.length} quartiers · écris pour filtrer
+                </p>
+              )}
+
+              {/* Hauteur bornée : la liste doit rester une liste, pas pousser
+                  le bouton d'enregistrement hors de l'écran. */}
+              <div className="max-h-64 divide-y divide-fg/[.06] overflow-y-auto">
+                {resultats.map((c) => (
+                  <button
+                    key={`${c.zone ?? ""}-${c.nom}`}
+                    onClick={() => choisir(c)}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition active:bg-fg/[.06]"
+                  >
+                    <span className="min-w-0 truncate text-[14px]">
+                      {c.nom}
                     </span>
-                  )}
-                </button>
-              ))}
-            </div>
+                    {/* Le département situe le quartier — « Thiaroye » ne dit
+                        rien à qui ne connaît pas, « Pikine » situe. Hors
+                        recherche globale, la région est déjà connue. */}
+                    <span className="shrink-0 text-[11px] text-fg/35">
+                      {region ? c.zone : (c.zone ?? regionDe(c.nom))}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </>
           )}
         </Glass>
       )}
@@ -191,3 +209,4 @@ function sansAccent(v: string): string {
     .toLowerCase()
     .trim();
 }
+
