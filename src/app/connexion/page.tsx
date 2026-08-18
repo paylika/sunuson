@@ -8,7 +8,18 @@ export const metadata: Metadata = { title: `Connexion — ${APP_NAME}` };
 
 export const dynamic = "force-dynamic";
 
-export default async function ConnexionPage() {
+/** Ce que le retour de lien a pu renvoyer, traduit pour l'écran. */
+const ERREURS: Record<string, string> = {
+  lien_invalide: "Ce lien est incomplet. Redemande un code ci-dessous.",
+  lien_expire:
+    "Ce lien a expiré ou a déjà servi. Redemande un code ci-dessous.",
+};
+
+export default async function ConnexionPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ erreur?: string }>;
+}) {
   // Déjà connecté : rien à faire ici.
   const user = await currentUser().catch(() => null);
   if (user) redirect("/dashboard");
@@ -19,5 +30,15 @@ export default async function ConnexionPage() {
   const key =
     process.env.SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  return <ConnexionView supabaseUrl={url ?? ""} supabaseKey={key ?? ""} />;
+  // Sans ça, un lien expiré ramenait sur un écran vierge : le visiteur
+  // recommençait à l'identique sans jamais savoir ce qui avait échoué.
+  const { erreur } = await searchParams;
+
+  return (
+    <ConnexionView
+      supabaseUrl={url ?? ""}
+      supabaseKey={key ?? ""}
+      erreurInitiale={erreur ? (ERREURS[erreur] ?? null) : null}
+    />
+  );
 }

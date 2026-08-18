@@ -25,16 +25,19 @@ type Etape = "email" | "verification";
 export function ConnexionView({
   supabaseUrl,
   supabaseKey,
+  erreurInitiale = null,
 }: {
   supabaseUrl: string;
   supabaseKey: string;
+  /** Motif du renvoi depuis /auth/callback, déjà traduit. */
+  erreurInitiale?: string | null;
 }) {
   const router = useRouter();
   const [etape, setEtape] = useState<Etape>("email");
   const parCode = AUTH_METHOD === "code";
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
-  const [erreur, setErreur] = useState<string | null>(null);
+  const [erreur, setErreur] = useState<string | null>(erreurInitiale);
   const [envoi, setEnvoi] = useState(false);
   const [renvoiDans, setRenvoiDans] = useState(0);
   const codeRef = useRef<HTMLInputElement>(null);

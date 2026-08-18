@@ -7,11 +7,19 @@
  *            depuis l'application de messagerie atterrit souvent dans un
  *            autre navigateur, et la session se crée au mauvais endroit.
  *
- * Le code EXIGE un serveur d'envoi (SMTP) configuré dans Supabase : sans lui,
- * les modèles de courriel ne sont pas modifiables et le jeton `{{ .Token }}`
- * ne peut pas être inséré. Basculer sur "code" une fois le SMTP en place.
+ * On est sur "code", et c'est le bon défaut ici. Le lien a trois façons
+ * d'échouer qui n'existent pas avec un code : l'adresse de retour doit être
+ * inscrite dans la liste blanche Supabase (donc chaque nouvelle URL casse la
+ * connexion), le lien ouvert depuis Gmail atterrit dans le navigateur interne
+ * de l'application et la session se crée là plutôt que dans le vrai
+ * navigateur, et il faut ouvrir le message sur le téléphone qui a fait la
+ * demande. Le code se tape dans la page déjà ouverte : rien de tout ça.
+ *
+ * Il exige une seule chose : que le modèle de courriel « Magic Link » de
+ * Supabase contienne `{{ .Token }}`. Sans ce jeton, le message part avec un
+ * lien et l'écran attend un code qui n'arrive jamais.
  */
-export const AUTH_METHOD: "lien" | "code" = "lien";
+export const AUTH_METHOD: "lien" | "code" = "code";
 
 /** Réglages produit. */
 export const APP_NAME = "Amplifan";
