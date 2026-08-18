@@ -111,17 +111,21 @@ export function EspaceFan({
 
   return (
     <>
-      <EspaceHeader titre="Mon espace" sous={email} />
+      <EspaceHeader titre="Mon espace" />
 
-      <Glass className="flex items-center gap-3.5 rounded-[24px] px-4 py-3.5">
+      {/* Portrait centré plutôt qu'une vignette en tête de ligne : à 52 px la
+          photo se voyait à peine, et personne ne prend la peine d'en choisir
+          une pour un timbre-poste. */}
+      <section className="flex flex-col items-center pb-2 pt-3">
         <PhotoFan email={email} avatarUrl={avatarUrl} />
-        <div className="min-w-0 flex-1">
-          <div className="text-[14.5px] font-semibold">Compte fan</div>
-          <div className="mt-0.5 text-[11.5px] text-fg/40">
-            Tu peux soutenir qui tu veux, sans limite
-          </div>
-        </div>
-      </Glass>
+
+        <p className="mt-4 max-w-full truncate text-[15.5px] font-semibold">
+          {email}
+        </p>
+        <p className="mt-1 text-[12px] text-fg/40">
+          Compte fan · tu peux soutenir qui tu veux
+        </p>
+      </section>
 
       <Link href="/playlist" className="mt-2.5 block">
         <Glass className="flex items-center gap-3.5 rounded-[24px] px-4 py-3.5 transition active:scale-[.99]">
@@ -185,19 +189,26 @@ function PhotoFan({
   }
 
   return (
-    <div className="relative shrink-0">
-      <Avatar name={nom} gradient={["#2a2d34", "#141619"]} src={avatarUrl} size={52} />
+    <div className="relative">
+      <Avatar
+        name={nom}
+        gradient={["#2a2d34", "#141619"]}
+        src={avatarUrl}
+        size={104}
+        ring
+      />
 
+      {/* 40 px : en dessous, la cible passe sous le pouce et il faut viser. */}
       <button
         onClick={() => champ.current?.click()}
         disabled={envoi}
         aria-label="Changer ma photo"
-        className="absolute -bottom-1 -right-1 grid h-7 w-7 place-items-center rounded-full grad-brand text-ink shadow-lg transition active:scale-90"
+        className="absolute bottom-0 right-0 grid h-10 w-10 place-items-center rounded-full grad-brand text-ink ring-4 ring-bg transition active:scale-90"
       >
         {envoi ? (
-          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-ink" />
+          <span className="h-3 w-3 animate-pulse rounded-full bg-ink" />
         ) : (
-          <Camera size={13} />
+          <Camera size={17} />
         )}
       </button>
 
@@ -216,7 +227,7 @@ function PhotoFan({
       />
 
       {erreur && (
-        <p className="absolute left-0 top-full mt-2 w-52 rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-[11px] leading-snug text-red-400">
+        <p className="absolute left-1/2 top-full mt-3 w-60 -translate-x-1/2 rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-center text-[11px] leading-snug text-red-400">
           {erreur}
         </p>
       )}
