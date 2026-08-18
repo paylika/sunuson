@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath as revalidateNext } from "next/cache";
 import { supabaseAdmin } from "./db";
 import { currentUser, supabaseSession } from "./auth";
 import {
@@ -807,6 +807,27 @@ function unwrapOrNull<T>(res: { data: T | null; error: unknown }): T | null {
 }
 
 /* ---------------------------------------------------------------------- */
+
+/**
+ * Invalide une page, sans jamais faire tomber l'action qui l'appelle.
+ *
+ * Sur Cloudflare, `revalidatePath` s'appuie sur un cache d'invalidation que ce
+ * Worker n'a pas : l'appel lève alors une exception, et comme il arrive en
+ * dernier, il faisait échouer des publications par ailleurs réussies — le
+ * morceau était en base, l'artiste voyait une erreur serveur.
+ *
+ * Toutes les pages sont en `force-dynamic` : elles se recalculent à chaque
+ * requête et n'ont rien à invalider. L'appel ne sert donc que si un jour un
+ * cache est branché, et son échec ne doit rien coûter d'ici là.
+ */
+function revalidatePath(chemin: string, type?: "layout" | "page") {
+  try {
+    if (type) revalidateNext(chemin, type);
+    else revalidateNext(chemin);
+  } catch {
+    /* pas de cache à invalider sur cet hébergement */
+  }
+}
 
 /**
  * Une clé de stockage venue du navigateur.

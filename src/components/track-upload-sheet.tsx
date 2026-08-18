@@ -134,6 +134,7 @@ export function TrackUploadSheet({
     setEtape(null);
 
     startTransition(async () => {
+      try {
       // La pochette part d'abord : elle est commune à tout le projet, et
       // échouer dessus après avoir monté dix morceaux serait cruel.
       let coverKey: string | undefined;
@@ -235,6 +236,18 @@ export function TrackUploadSheet({
       setEtape(null);
       router.refresh();
       onClose();
+      } catch (e) {
+        // Sans ce filet, une exception du serveur remplace toute la page par
+        // « Application error », qui n'apprend rien à l'artiste et rien à
+        // nous non plus. Ici, au moins, le message reste lisible et le
+        // formulaire rempli.
+        setEtape(null);
+        setError(
+          e instanceof Error && e.message
+            ? `Publication impossible : ${e.message}`
+            : "Publication impossible. Réessaie dans un instant.",
+        );
+      }
     });
   }
 
