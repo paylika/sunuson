@@ -14,6 +14,7 @@ import {
 import { fcfa } from "@/lib/format";
 import type { Artist, Track } from "@/lib/types";
 import { useUnlock } from "./providers";
+import { useRetourFerme } from "./retour-mobile";
 import { Avatar, Button, cx, Glass } from "./ui";
 import { Check, Close, Lock, Spark } from "./icons";
 
@@ -40,6 +41,9 @@ export function SupportSheet({
 }) {
   const { unlock } = useUnlock();
   const router = useRouter();
+  // Le retour ferme la feuille au lieu de quitter la page de l'artiste.
+  useRetourFerme(open, onClose);
+
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<Step>("montant");
   const [amount, setAmount] = useState<number>(2000);

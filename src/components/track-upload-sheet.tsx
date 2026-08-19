@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createRelease, createTrack, findArtists } from "@/lib/actions";
 import { deposer } from "@/lib/depot";
+import { useRetourFerme } from "./retour-mobile";
 import { MIN_SUPPORT, type TypeProjet } from "@/lib/config";
 import { MAX_STYLES, STYLES, type StyleId } from "@/lib/styles";
 import { fcfa, initials } from "@/lib/format";
@@ -47,6 +48,10 @@ export function TrackUploadSheet({
   // Un rappeur ne sort pas dix singles, il sort un projet. Lui faire répéter
   // dix fois le même formulaire — même pochette, même prix, même déclaration
   // de droits — est la façon la plus sûre de le perdre au troisième.
+  // Le retour ferme la feuille plutôt que de quitter l'atelier — et ce qui
+  // est rempli reste rempli.
+  useRetourFerme(open, onClose);
+
   const [format, setFormat] = useState<"single" | "projet">("single");
   const [typeProjet, setTypeProjet] = useState<TypeProjet>("ep");
   const [pistes, setPistes] = useState<Piste[]>([]);

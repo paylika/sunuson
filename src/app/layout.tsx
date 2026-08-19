@@ -21,6 +21,15 @@ export const metadata: Metadata = {
   title: `${APP_NAME} — ${APP_TAGLINE}`,
   description:
     "Écoute les rappeurs sénégalais gratuitement. Soutiens-les directement par mobile money.",
+  manifest: "/manifest.webmanifest",
+  // Ajoutée à l'écran d'accueil, l'application s'ouvre sans barre
+  // d'adresse — ce qui rend le geste de retour d'autant plus important, et
+  // c'est pourquoi il fallait d'abord le réparer.
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: APP_NAME,
+  },
 };
 
 export const viewport: Viewport = {
@@ -28,6 +37,11 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  // La page va jusque sous l'encoche et sous la barre d'accueil ; les zones
+  // sûres sont ensuite rendues au contenu par les marges de la navigation.
+  // Sans ça, l'application s'arrête sur deux bandes noires et ne ressemble
+  // plus à une application.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

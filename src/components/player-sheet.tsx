@@ -9,6 +9,7 @@ import { ambianceDe, type Ambiance } from "@/lib/couleur";
 import { usePlayer, useUnlock, type QueueItem } from "./providers";
 import { PlaylistButton } from "./playlist-button";
 import { PochetteGlissante } from "./pochette-glissante";
+import { useRetourFerme } from "./retour-mobile";
 import { SupportSheet } from "./support-sheet";
 import { Waveform } from "./waveform";
 import { Cover, cx } from "./ui";
@@ -57,6 +58,9 @@ export function PlayerSheet() {
   // n'est pas lue, mieux vaut un fond sombre discret qu'une couleur qui sera
   // peut-être démentie une seconde plus tard.
   const [ambiance, setAmbiance] = useState<Ambiance>(["#26282e", "#101115"]);
+  // Le geste de retour replie le lecteur au lieu de quitter le site.
+  useRetourFerme(expanded, collapse);
+
   const [suggestions, setSuggestions] = useState<Item[]>([]);
   const [chargeSuggestions, setChargeSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -179,7 +183,13 @@ export function PlayerSheet() {
           automatique de la grille dispersait le titre et les commandes du
           mauvais côté. Une colonne propre vaut mieux qu'une grille savante
           mal réglée. */}
-      <div className="relative mx-auto flex h-full w-full max-w-[480px] flex-col overflow-y-auto px-5 pb-3 pt-3 md:max-w-[560px]">
+      <div
+        className="relative mx-auto flex h-full w-full max-w-[480px] flex-col overflow-y-auto px-5 pb-3 pt-3 md:max-w-[560px]"
+        style={{
+          paddingTop: "max(0.75rem, env(safe-area-inset-top))",
+          paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))",
+        }}
+      >
         {/* -------------------------------------------------------- entête */}
         <header className="flex items-center justify-between">
           <button

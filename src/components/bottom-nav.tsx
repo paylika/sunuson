@@ -61,7 +61,13 @@ export function BottomNav({ estArtiste = false }: { estArtiste?: boolean }) {
   const enPublication = recherche.get("publier") === "1";
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] px-4 pb-4 md:max-w-[560px]">
+    <nav
+      className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] px-4 pb-4 md:max-w-[560px]"
+      // Installée sur l'écran d'accueil, l'application va jusqu'au bord : sans
+      // cette marge, la barre passe sous la barre d'accueil du téléphone et
+      // les onglets du bas deviennent intouchables.
+      style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+    >
       <div className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-32 bg-gradient-to-t from-bg via-bg/85 to-transparent" />
 
       <div className="glass-strong flex items-center gap-0.5 rounded-[26px] p-1.5">
