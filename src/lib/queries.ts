@@ -3,6 +3,7 @@ import { supabase as client } from "./db";
 import { AUDIO_BUCKET, COVERS_BUCKET } from "./storage";
 import type { Artist, Clip, Collaborator, Support, Track } from "./types";
 import type { PaymentMethod } from "./config";
+import { CONTEXTE_VIDE, type Candidat, type Contexte } from "./reco";
 
 /**
  * Toutes les lectures de la base passent par ici, et uniquement depuis le
@@ -66,6 +67,7 @@ type TrackRow = {
   release_type?: string | null;
   release_title?: string | null;
   release_id?: string | null;
+  styles?: string[] | null;
   title: string;
   duration: number;
   plays: number;
@@ -84,7 +86,7 @@ const TRACK_COLS =
 // Les colonnes de projet arrivent par la migration 006. Les demander avant
 // qu'elle soit jouée ferait échouer toute lecture de morceau — donc les pages
 // d'artistes et la playlist. On les demande à part, avec repli.
-const TRACK_COLS_PROJET = `${TRACK_COLS}, release_type, release_title, release_id`;
+const TRACK_COLS_PROJET = `${TRACK_COLS}, release_type, release_title, release_id, styles`;
 
 /**
  * La base ne stocke que la clé ; l'URL publique se compose ici.
@@ -123,6 +125,7 @@ function toTrack(r: TrackRow): Track {
       (r.release_type as Track["releaseType"] | undefined) ?? "single",
     releaseTitle: r.release_title ?? undefined,
     releaseId: r.release_id ?? undefined,
+    styles: r.styles ?? [],
     collaborators: [],
   };
 }
@@ -709,4 +712,113 @@ export async function getSuggestions(
     ...items.filter((i) => i.artist.city === region),
     ...items.filter((i) => i.artist.city !== region),
   ];
+}
+
+/* -------------------------------------------------------- recommandation */
+
+/**
+ * Tout ce qu'il faut pour classer : les morceaux écoutables, leurs artistes,
+ * et le nombre de soutiens reçus par chacun.
+ *
+ * Les morceaux verrouillés sont écartés : proposer une porte fermée à
+ * quelqu'un qui découvre est le plus sûr moyen de le faire partir.
+ */
+export async function getCandidats(): Promise<Candidat[]> {
+  const supabase = client();
+
+  const requete = (colonnes: string) =>
+    supabase
+      .from("tracks")
+      .select(colonnes)
+      .eq("locked", false)
+      .order("released_at", { ascending: false })
+      .limit(200)
+      .returns<TrackRow[]>();
+
+  let res = await requete(TRACK_COLS_PROJET);
+  if (res.error) res = await requete(TRACK_COLS);
+  if (res.error) return [];
+
+  const rows = res.data ?? [];
+  if (rows.length === 0) return [];
+
+  const [artistRows, balances, collabs] = await Promise.all([
+    supabase
+      .from("artists")
+      .select(ARTIST_COLS)
+      .in("id", [...new Set(rows.map((r) => r.artist_id))])
+      .returns<ArtistRow[]>()
+      .then((r) => r.data ?? []),
+    getBalances(),
+    collaboratorsFor(rows.map((r) => r.id)),
+  ]);
+
+  const parId = new Map(artistRows.map((a) => [a.id, toArtist(a)]));
+
+  return rows
+    .map((r) => {
+      const artist = parId.get(r.artist_id);
+      if (!artist) return null;
+
+      const track = toTrack(r);
+      track.collaborators = collabs.get(r.id) ?? [];
+
+      return {
+        track,
+        artist,
+        soutiens: balances.get(artist.id)?.supportCount ?? 0,
+      };
+    })
+    .filter((c): c is Candidat => c !== null);
+}
+
+/**
+ * Ce que la plateforme sait d'un fan connecté — uniquement par ses soutiens.
+ *
+ * Ses écoutes ne comptent pas, et c'est délibéré : elles sont anonymes, donc
+ * elles ne rattachent rien à personne. Le soutien, lui, est un geste public et
+ * volontaire ; s'en servir ne trahit aucune promesse.
+ *
+ * Un visiteur sans compte reçoit un contexte vide, et l'algorithme se rabat
+ * alors sur la fraîcheur et la preuve sociale.
+ */
+export async function getContexte(userId?: string): Promise<Contexte> {
+  if (!userId) return CONTEXTE_VIDE;
+
+  const res = await client()
+    .from("supports")
+    .select("artist_id")
+    .eq("user_id", userId)
+    .eq("status", "paid")
+    .limit(200)
+    .returns<{ artist_id: string }[]>();
+
+  // La colonne vient de la migration 005 : sans elle, pas de personnalisation,
+  // mais surtout pas de page en erreur.
+  if (res.error || !res.data || res.data.length === 0) return CONTEXTE_VIDE;
+
+  const artistesSoutenus = [...new Set(res.data.map((r) => r.artist_id))];
+
+  const [artistRows, trackRows] = await Promise.all([
+    client()
+      .from("artists")
+      .select("city")
+      .in("id", artistesSoutenus)
+      .returns<{ city: string }[]>()
+      .then((r) => r.data ?? []),
+    client()
+      .from("tracks")
+      .select("styles")
+      .in("artist_id", artistesSoutenus)
+      .returns<{ styles: string[] | null }[]>()
+      .then((r) => r.data ?? []),
+  ]);
+
+  return {
+    artistesSoutenus,
+    regions: [...new Set(artistRows.map((a) => a.city).filter(Boolean))],
+    stylesAimes: [
+      ...new Set(trackRows.flatMap((t) => t.styles ?? [])),
+    ],
+  };
 }

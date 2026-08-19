@@ -17,6 +17,7 @@ import {
   type TypeProjet,
 } from "./config";
 import { communeValide } from "./senegal";
+import { stylesValides } from "./styles";
 import {
   AUDIO_BUCKET,
   AUDIO_RULES,
@@ -336,6 +337,15 @@ export async function createTrack(formData: FormData): Promise<ActionResult> {
   const supportMode = formData.get("supportMode") === "fixe" ? "fixe" : "libre";
   const supportAmount = Math.round(Number(formData.get("supportAmount") ?? 0));
 
+  // Les étiquettes viennent du navigateur : on ne garde que celles de la
+  // liste fermée, sinon la recommandation par style ne rapproche plus rien.
+  let styles: string[] = [];
+  try {
+    styles = stylesValides(JSON.parse(String(formData.get("styles") ?? "[]")));
+  } catch {
+    styles = [];
+  }
+
   if (title.length < 2) return { ok: false, error: "Titre trop court." };
   if (!rightsOk) {
     return { ok: false, error: "Il faut confirmer que tu détiens les droits." };
@@ -432,6 +442,7 @@ export async function createTrack(formData: FormData): Promise<ActionResult> {
       duration,
       support_mode: supportMode,
       support_amount: supportMode === "fixe" ? supportAmount : null,
+      styles,
       position: (last?.position ?? 0) + 1,
     })
     .select("id")
@@ -664,6 +675,7 @@ export async function createRelease(input: {
   supportMode: "libre" | "fixe";
   supportAmount: number;
   rightsOk: boolean;
+  styles?: string[];
   tracks: { title: string; audioKey: string; duration: number }[];
 }): Promise<ActionResult> {
   const user = await currentUser();
@@ -755,6 +767,7 @@ export async function createRelease(input: {
       release_type: input.type,
       release_title: titreProjet,
       release_id: releaseId,
+      styles: stylesValides(input.styles),
     })),
   );
 

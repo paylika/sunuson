@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createRelease, createTrack, findArtists } from "@/lib/actions";
 import { deposer } from "@/lib/depot";
 import { MIN_SUPPORT, type TypeProjet } from "@/lib/config";
+import { MAX_STYLES, STYLES, type StyleId } from "@/lib/styles";
 import { fcfa, initials } from "@/lib/format";
 import { COVER_RULES, prepareCover, readAudioDuration } from "@/lib/storage";
 import type { Artist } from "@/lib/types";
@@ -56,6 +57,7 @@ export function TrackUploadSheet({
   // réessayer ne doit pas tout renvoyer depuis le début.
   const deposesRef = useRef<Map<string, string>>(new Map());
 
+  const [styles, setStyles] = useState<StyleId[]>([]);
   const [title, setTitle] = useState("");
   const [label, setLabel] = useState(artist.label ?? "");
   const [audio, setAudio] = useState<File | null>(null);
@@ -179,6 +181,7 @@ export function TrackUploadSheet({
         fd.set("supportMode", locked ? mode : "libre");
         fd.set("supportAmount", amount);
         fd.set("duration", String(duration));
+        fd.set("styles", JSON.stringify(styles));
         fd.set("audioKey", dep.key);
         if (coverKey) fd.set("coverKey", coverKey);
         fd.set(
@@ -239,6 +242,7 @@ export function TrackUploadSheet({
           supportMode: locked ? mode : "libre",
           supportAmount: Number(amount) || 0,
           rightsOk: rights,
+          styles,
           tracks: deposes,
         });
 
@@ -461,6 +465,48 @@ export function TrackUploadSheet({
               maxLength={60}
               className="w-full rounded-2xl glass px-4 py-3.5 text-[15px] font-medium outline-none placeholder:font-normal placeholder:text-fg/35"
             />
+          </Field>
+
+          {/* Le style est le seul signal de similarité disponible dès le
+              premier morceau : les featurings et les soutiens communs
+              demandent des mois d'usage. Trois au maximum — au-delà, une
+              étiquette ne distingue plus rien. */}
+          <Field
+            label="Style"
+            hint={`Jusqu'à ${MAX_STYLES}. C'est ce qui te fera recommander à ceux qui écoutent le même genre.`}
+          >
+            <div className="flex flex-wrap gap-2">
+              {STYLES.map((st) => {
+                const choisi = styles.includes(st.id);
+                const plein = styles.length >= MAX_STYLES && !choisi;
+
+                return (
+                  <button
+                    key={st.id}
+                    onClick={() =>
+                      setStyles((prev) =>
+                        choisi
+                          ? prev.filter((x) => x !== st.id)
+                          : prev.length < MAX_STYLES
+                            ? [...prev, st.id]
+                            : prev,
+                      )
+                    }
+                    disabled={plein}
+                    className={cx(
+                      "rounded-full px-3.5 py-2 text-[12.5px] font-semibold transition active:scale-95",
+                      choisi
+                        ? "grad-brand text-ink"
+                        : plein
+                          ? "bg-fg/[.04] text-fg/20"
+                          : "glass text-fg/55",
+                    )}
+                  >
+                    {st.nom}
+                  </button>
+                );
+              })}
+            </div>
           </Field>
 
           <Field

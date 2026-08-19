@@ -73,6 +73,8 @@ export type Track = {
   releaseTitle?: string;
   /** Identifiant partagé par les morceaux d'un même projet. */
   releaseId?: string;
+  /** Étiquettes de style, choisies dans une liste fermée. */
+  styles?: string[];
   /** Invités, avec leur part. Vide sur un morceau solo. */
   collaborators: Collaborator[];
 };

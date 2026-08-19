@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { compact, fcfa } from "@/lib/format";
-import type { Artist } from "@/lib/types";
+import type { Artist, Track } from "@/lib/types";
+import { usePlayer } from "./providers";
+import { PlaylistButton } from "./playlist-button";
 import {
   Avatar,
   Cover,
@@ -12,7 +14,7 @@ import {
   NameWithBadge,
   SectionTitle,
 } from "./ui";
-import { ChevronRight, Flame, Music, Search } from "./icons";
+import { ChevronRight, Flame, Music, Pause, Play, Search } from "./icons";
 
 export type DiscoverRow = {
   artist: Artist;
@@ -21,13 +23,22 @@ export type DiscoverRow = {
   titles: string[];
 };
 
+export type FeedItem = { track: Track; artist: Artist; raison?: string };
+
 export function DiscoverView({
   rows,
   trackCount,
+  feed = [],
+  personnalise = false,
 }: {
   rows: DiscoverRow[];
   trackCount: number;
+  /** Morceaux classés par l'algorithme. */
+  feed?: FeedItem[];
+  /** Vrai quand le classement tient compte des soutiens du fan. */
+  personnalise?: boolean;
 }) {
+  const { track: courant, playing, playQueue } = usePlayer();
   const [q, setQ] = useState("");
   const [ville, setVille] = useState("Toutes");
 
@@ -98,6 +109,91 @@ export function DiscoverView({
           </button>
         ))}
       </div>
+
+      {/* Le fil passe avant tout le reste : on vient ici pour écouter, pas
+          pour consulter un annuaire. Masqué pendant une recherche, où l'on
+          sait déjà ce qu'on cherche. */}
+      {feed.length > 0 && !q.trim() && ville === "Toutes" && (
+        <section className="mt-6">
+          <SectionTitle>
+            {personnalise ? "Pour toi" : "À écouter maintenant"}
+          </SectionTitle>
+
+          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2">
+            {feed.map(({ track, artist, raison }, i) => {
+              const enCours = courant?.id === track.id;
+
+              return (
+                <div key={track.id} className="w-[142px] shrink-0">
+                  <div className="relative">
+                    <button
+                      onClick={() =>
+                        playQueue(
+                          feed.map((f) => ({ track: f.track, artist: f.artist })),
+                          i,
+                        )
+                      }
+                      aria-label={
+                        enCours && playing ? "Pause" : `Écouter ${track.title}`
+                      }
+                      className="block w-full survol-monte"
+                    >
+                      <Cover
+                        gradient={artist.gradient}
+                        src={track.coverUrl}
+                        alt={track.title}
+                        rounded="rounded-[22px]"
+                        className="aspect-square w-full"
+                      />
+                      <span
+                        className={cx(
+                          "absolute inset-0 grid place-items-center rounded-[22px] text-white transition",
+                          enCours ? "bg-black/45" : "bg-black/15",
+                        )}
+                      >
+                        <span className="grid h-11 w-11 place-items-center rounded-full bg-black/45 backdrop-blur-md">
+                          {enCours && playing ? (
+                            <Pause size={17} />
+                          ) : (
+                            <Play size={17} />
+                          )}
+                        </span>
+                      </span>
+                    </button>
+
+                    <span className="absolute -bottom-1.5 -right-1.5">
+                      <PlaylistButton trackId={track.id} size="sm" />
+                    </span>
+                  </div>
+
+                  <div
+                    className={cx(
+                      "mt-2.5 truncate text-[13px] font-semibold",
+                      enCours && "text-acid-500",
+                    )}
+                  >
+                    {track.title}
+                  </div>
+                  <Link
+                    href={`/a/${artist.slug}`}
+                    className="block truncate text-[11px] text-fg/40"
+                  >
+                    {artist.name}
+                  </Link>
+                  {/* La raison est ce qui sépare une recommandation d'une
+                      publicité : sans elle, le fan ne sait pas pourquoi on lui
+                      montre ça, et se méfie. */}
+                  {raison && (
+                    <div className="mt-1 truncate text-[10px] font-semibold text-acid-500/80">
+                      {raison}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Masqué dès qu'on cherche ou qu'on filtre : au milieu de résultats
           précis, un palmarès général n'est plus une réponse, c'est du bruit. */}

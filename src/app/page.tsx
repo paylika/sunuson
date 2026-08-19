@@ -1,25 +1,40 @@
-import { getArtists, getBalances, getTrackTitles } from "@/lib/queries";
+import { viewer } from "@/lib/auth";
+import {
+  getArtists,
+  getBalances,
+  getCandidats,
+  getContexte,
+  getTrackTitles,
+} from "@/lib/queries";
+import { recommander } from "@/lib/reco";
 import { DiscoverView } from "@/components/discover-view";
 import { Shell } from "@/components/shell";
 
 export const dynamic = "force-dynamic";
 
 /**
- * La racine est l'écran Découvrir.
+ * Découvrir, et racine du site.
  *
- * Il y avait avant un accueil distinct : artiste à la une, classement, rappel
- * du fonctionnement. Il montrait des listes d'artistes que Découvrir montrait
- * déjà, et reposait sur une hypothèse fausse ici — qu'on ouvre l'application
- * pour la parcourir. Les fans arrivent par le lien d'un artiste partagé dans
- * WhatsApp et atterrissent sur /a/son-nom. Le classement, seul contenu qui
- * lui était propre, a été remonté en tête de cet écran.
+ * L'écran ne classe plus les artistes par auditeurs mensuels. C'était un
+ * chiffre semé, jamais calculé : le seul artiste réellement inscrit arrivait
+ * dernier, derrière cinq personnages de démonstration. Un classement qui ne
+ * classe rien vaut moins que pas de classement du tout.
+ *
+ * Les morceaux passent donc par l'algorithme, et les artistes restent en
+ * annuaire consultable — l'un pour écouter, l'autre pour chercher quelqu'un.
  */
-export default async function AccueilPage() {
-  const [artists, balances, titles] = await Promise.all([
+export default async function DecouvrirPage() {
+  const { user } = await viewer();
+
+  const [candidats, contexte, artists, balances, titles] = await Promise.all([
+    getCandidats(),
+    getContexte(user?.id),
     getArtists(),
     getBalances(),
     getTrackTitles(),
   ]);
+
+  const feed = recommander(candidats, contexte, { limite: 18 });
 
   const rows = artists.map((artist) => ({
     artist,
@@ -32,7 +47,16 @@ export default async function AccueilPage() {
 
   return (
     <Shell>
-      <DiscoverView rows={rows} trackCount={trackCount} />
+      <DiscoverView
+        rows={rows}
+        trackCount={trackCount}
+        feed={feed.map((r) => ({
+          track: r.track,
+          artist: r.artist,
+          raison: r.raison,
+        }))}
+        personnalise={contexte.artistesSoutenus.length > 0}
+      />
     </Shell>
   );
 }
