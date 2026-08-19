@@ -164,7 +164,7 @@ export function DiscoverView({
           </Glass>
         ) : (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-            {results.map(({ artist, total, count }) => (
+            {results.map(({ artist, count, titles: titres }) => (
               <Link
                 key={artist.id}
                 href={`/a/${artist.slug}`}
@@ -201,8 +201,14 @@ export function DiscoverView({
                         verified={artist.verified}
                       />
                     </span>
-                    <span className="mt-0.5 block text-[11px] text-white/65">
-                      {artist.city} · {compact(artist.monthlyListeners)} / mois
+                    {/* Le Foy Tewal et le nombre de sons : les auditeurs
+                        mensuels apparaissaient ici ET dans la pastille juste
+                        en dessous, ce qui donnait deux fois le même chiffre à
+                        deux endroits d'une carte de la taille d'un pouce. */}
+                    <span className="mt-0.5 block truncate text-[11px] text-white/65">
+                      {artist.city}
+                      {titres.length > 0 &&
+                        ` · ${titres.length} son${titres.length > 1 ? "s" : ""}`}
                     </span>
                     <span className="mt-2 flex items-center justify-between rounded-full bg-black/45 px-3 py-1.5 backdrop-blur-md">
                       <span className="text-[11.5px] font-semibold tabular-nums text-gold-400">

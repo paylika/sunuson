@@ -96,12 +96,14 @@ const tracks = await json(
   "/rest/v1/tracks?select=id,title,cover_key,artist_id&cover_key=is.null&order=title",
 );
 
-if (tracks.length === 0) {
-  console.log("Tous les morceaux ont déjà une pochette. Rien à faire.");
-  process.exit(0);
-}
-
-console.log(`${tracks.length} morceaux sans pochette.\n`);
+// Pas de sortie anticipée : les artistes se traitent plus bas, et ils peuvent
+// manquer de portrait alors que tous les morceaux ont déjà leur pochette.
+console.log(
+  tracks.length === 0
+    ? "Tous les morceaux ont déjà une pochette."
+    : `${tracks.length} morceaux sans pochette.
+`,
+);
 
 let i = 0;
 for (const t of tracks) {
@@ -134,6 +136,113 @@ for (const t of tracks) {
 
   console.log(`  ✓ ${t.title.padEnd(30)} ${palette.haut}`);
   i++;
+}
+
+console.log("\nTerminé.");
+
+/* ------------------------------------------------------------ artistes */
+
+/**
+ * Portrait et bannière.
+ *
+ * Sans eux, les cartes de Découvrir sont des rectangles vides : la page a
+ * l'air d'un catalogue en rupture, et rien ne distingue un artiste d'un autre.
+ * Le dégradé stocké est refait au passage pour s'accorder aux images — il
+ * datait de l'ancienne palette et tirait au violet sur tout le monde.
+ */
+function svgPortrait({ haut, bas, encre }, texte) {
+  return Buffer.from(`
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600">
+  <defs>
+    <linearGradient id="p" x1="0" y1="0" x2="0.7" y2="1">
+      <stop offset="0" stop-color="${haut}"/>
+      <stop offset="1" stop-color="${bas}"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="600" fill="url(#p)"/>
+  <circle cx="300" cy="250" r="120" fill="${encre}" opacity="0.14"/>
+  <path d="M120 600c0-100 80-180 180-180s180 80 180 180Z" fill="${encre}" opacity="0.14"/>
+  <text x="300" y="330" text-anchor="middle"
+        font-family="Helvetica, Arial, sans-serif" font-size="150" font-weight="700"
+        fill="${encre}" opacity="0.9">${texte}</text>
+</svg>`);
+}
+
+function svgBanniere({ haut, bas, encre }, graine) {
+  const x = 200 + (graine % 5) * 160;
+  const barres = Array.from({ length: 26 }, (_, i) => {
+    const h = 40 + ((i * 37 + graine * 13) % 200);
+    return `<rect x="${60 + i * 42}" y="${560 - h / 2}" width="16" height="${h}" rx="8"/>`;
+  }).join("");
+
+  return Buffer.from(`
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <defs>
+    <linearGradient id="b" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="${haut}"/>
+      <stop offset="1" stop-color="${bas}"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#b)"/>
+  <circle cx="${x}" cy="240" r="320" fill="${encre}" opacity="0.10"/>
+  <circle cx="${1200 - x}" cy="620" r="240" fill="${encre}" opacity="0.08"/>
+  <g fill="${encre}" opacity="0.16">${barres}</g>
+</svg>`);
+}
+
+const artistes = await json(
+  "/rest/v1/artists?select=id,name,avatar_key,cover_key&avatar_key=is.null",
+);
+
+if (artistes.length === 0) {
+  console.log("Tous les artistes ont déjà un portrait.");
+} else {
+  console.log(`\n${artistes.length} artistes sans portrait.\n`);
+}
+
+let a = 0;
+for (const art of artistes) {
+  const palette = PALETTES[(a + 3) % PALETTES.length];
+
+  const images = [
+    ["portrait", "avatar_key", svgPortrait(palette, initiales(art.name)), 88],
+    ["banniere", "cover_key", svgBanniere(palette, a), 86],
+  ];
+
+  for (const [genre, colonne, svgSource, qualite] of images) {
+    const image = await sharp(svgSource).jpeg({ quality: qualite }).toBuffer();
+    const cle = `demo/artistes/${art.id}-${genre}.jpg`;
+
+    const up = await fetch(`${URL_BASE}/storage/v1/object/covers/${cle}`, {
+      method: "POST",
+      headers: { ...entetes, "content-type": "image/jpeg", "x-upsert": "true" },
+      body: image,
+    });
+    if (!up.ok) {
+      console.error(`  ✗ ${art.name} ${genre} : ${up.status} ${await up.text()}`);
+      continue;
+    }
+
+    await json(`/rest/v1/artists?id=eq.${art.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ [colonne]: cle }),
+    });
+  }
+
+  // Le dégradé de repli s'accorde aux images : sans ça, une image absente
+  // ferait réapparaître le violet de l'ancienne palette.
+  await json(`/rest/v1/artists?id=eq.${art.id}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json", Prefer: "return=minimal" },
+    body: JSON.stringify({
+      gradient_from: palette.haut,
+      gradient_to: palette.bas,
+    }),
+  });
+
+  console.log(`  ✓ ${art.name.padEnd(20)} ${palette.haut}`);
+  a++;
 }
 
 console.log("\nTerminé.");
