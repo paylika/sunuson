@@ -105,8 +105,18 @@ function Rappel() {
         </ul>
       </div>
 
+      {/* Les conditions doivent être lisibles AVANT d'être acceptées, pas
+          retrouvables après coup dans un menu. */}
       <p className="mt-4 text-center text-[10.5px] leading-relaxed text-fg/30">
-        En continuant, tu acceptes les conditions d&apos;{APP_NAME}.
+        En continuant, tu acceptes les{" "}
+        <Link href="/conditions" className="underline">
+          conditions
+        </Link>{" "}
+        et la{" "}
+        <Link href="/confidentialite" className="underline">
+          politique de confidentialité
+        </Link>{" "}
+        d&apos;{APP_NAME}.
       </p>
     </>
   );

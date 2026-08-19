@@ -860,6 +860,68 @@ export async function updatePayout(input: {
   return { ok: true };
 }
 
+/**
+ * Supprime définitivement le compte.
+ *
+ * Trois pièges, tous désamorcés ici.
+ *
+ * D'abord l'ordre : `artists.user_id` est en ON DELETE SET NULL. Supprimer
+ * seulement l'utilisateur laisserait la page de l'artiste en ligne, sans
+ * propriétaire — visible de tous et modifiable par personne. On efface donc
+ * l'artiste d'abord, ce qui emporte en cascade ses morceaux, ses soutiens et
+ * ses retraits.
+ *
+ * Ensuite l'argent : on refuse tant qu'un solde reste à retirer. Effacer un
+ * compte qui détient de l'argent dû, c'est le perdre sans trace.
+ *
+ * Enfin les fans : `supports.user_id` est en SET NULL, donc un fan qui part
+ * laisse ses soutiens en place, simplement détachés de son compte. C'est
+ * volontaire — le soutien appartient aussi à l'artiste qui l'a reçu, et son
+ * historique de revenus ne doit pas se réécrire quand quelqu'un s'en va.
+ */
+export async function supprimerCompte(): Promise<ActionResult> {
+  const user = await currentUser();
+  if (!user) return { ok: false, error: "Connecte-toi d'abord." };
+
+  const admin = supabaseAdmin();
+
+  const { data: artist } = await admin
+    .from("artists")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle<{ id: string }>();
+
+  if (artist) {
+    const { data: solde } = await admin
+      .from("artist_balances")
+      .select("available")
+      .eq("artist_id", artist.id)
+      .maybeSingle<{ available: number }>();
+
+    if ((solde?.available ?? 0) > 0) {
+      return {
+        ok: false,
+        error:
+          "Il te reste de l'argent à retirer. Fais ton retrait avant de supprimer ton compte.",
+      };
+    }
+
+    const { error } = await admin.from("artists").delete().eq("id", artist.id);
+    if (error) return { ok: false, error: error.message };
+  }
+
+  const { error } = await admin.auth.admin.deleteUser(user.id);
+  if (error) return { ok: false, error: error.message };
+
+  // La session ne vaut plus rien, mais son cookie traîne : sans ça, la page
+  // suivante croirait encore à un compte et échouerait bizarrement.
+  const supabase = await supabaseSession();
+  await supabase.auth.signOut().catch(() => {});
+
+  revalidateAll();
+  return { ok: true };
+}
+
 /** Déconnexion. Une Server Action peut écrire les cookies, pas une page. */
 export async function signOut(): Promise<void> {
   const supabase = await supabaseSession();

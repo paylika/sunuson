@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { signOut, updatePayout } from "@/lib/actions";
+import { signOut, supprimerCompte, updatePayout } from "@/lib/actions";
 import {
   APP_DOMAIN,
   APP_NAME,
@@ -159,6 +159,13 @@ export function ParametresView({
       )}
 
       <Deconnexion />
+
+      <Bloc titre="Documents">
+        <Lien href="/conditions" titre="Conditions d'utilisation" />
+        <Lien href="/confidentialite" titre="Politique de confidentialité" />
+      </Bloc>
+
+      <SupprimerCompte estArtiste={!!artist} />
 
       <p className="mt-8 text-center text-[10.5px] text-fg/25">
         {APP_NAME} — {APP_DOMAIN}
@@ -325,6 +332,147 @@ function FormulaireRetrait({
         {fait && !change && !envoi && <Check size={15} />}
       </button>
     </Glass>
+  );
+}
+
+/** Ligne de renvoi simple, pour les documents. */
+function Lien({ href, titre }: { href: string; titre: string }) {
+  return (
+    <Link href={href} className="block">
+      <Glass className="flex items-center gap-3 rounded-[24px] px-4 py-3.5 transition active:scale-[.99]">
+        <span className="min-w-0 flex-1 truncate text-[14px]">{titre}</span>
+        <ChevronRight size={15} className="shrink-0 text-fg/30" />
+      </Glass>
+    </Link>
+  );
+}
+
+/* ---------------------------------------------------- supprimer le compte */
+
+/**
+ * Suppression définitive.
+ *
+ * Trois écrans plutôt qu'un bouton : un compte effacé ne se récupère pas, et
+ * la porte de sortie ne doit pas se pousser du coude. La dernière étape
+ * demande d'écrire le mot lui-même — cocher une case se fait sans lire, écrire
+ * demande de comprendre.
+ */
+function SupprimerCompte({ estArtiste }: { estArtiste: boolean }) {
+  const router = useRouter();
+  const [etape, setEtape] = useState<0 | 1 | 2>(0);
+  const [mot, setMot] = useState("");
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [envoi, demarrer] = useTransition();
+
+  if (etape === 0) {
+    return (
+      <button
+        onClick={() => setEtape(1)}
+        className="mt-6 w-full text-center text-[12.5px] font-medium text-fg/30 transition"
+      >
+        Supprimer mon compte
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-6 rounded-[24px] border border-red-500/25 bg-red-500/[.06] p-4">
+      <p className="text-[13.5px] font-bold text-fg/85">
+        Supprimer définitivement ton compte
+      </p>
+
+      <ul className="mt-2.5 space-y-1.5 text-[12px] leading-relaxed text-fg/55">
+        <li>· Ton compte et ton nom disparaissent.</li>
+        {estArtiste && (
+          <>
+            <li>· Ta page, tes sons et tes projets sont effacés.</li>
+            <li>
+              · L&apos;historique de ce que tu as reçu part avec eux. Fais ton
+              retrait avant.
+            </li>
+          </>
+        )}
+        <li>
+          {/* Ce point rassure autant qu'il informe : un fan hésite à partir
+              s'il croit effacer ce qu'il a donné à quelqu'un d'autre. */}
+          · Les soutiens que tu as envoyés restent chez les artistes, sans ton
+          nom.
+        </li>
+        <li>· Rien ne se récupère.</li>
+      </ul>
+
+      {etape === 1 ? (
+        <div className="mt-3.5 flex gap-2">
+          <button
+            onClick={() => setEtape(0)}
+            className="h-11 flex-1 rounded-full bg-fg/[.07] text-[13.5px] font-semibold text-fg/70 transition active:scale-[.98]"
+          >
+            Annuler
+          </button>
+          <button
+            onClick={() => setEtape(2)}
+            className="h-11 flex-1 rounded-full bg-red-500/15 text-[13.5px] font-semibold text-red-400 transition active:scale-[.98]"
+          >
+            Continuer
+          </button>
+        </div>
+      ) : (
+        <>
+          <p className="mt-3.5 text-[12px] text-fg/50">
+            Écris <span className="font-bold text-fg/80">SUPPRIMER</span> pour
+            confirmer.
+          </p>
+          <input
+            value={mot}
+            onChange={(e) => setMot(e.target.value.toUpperCase())}
+            placeholder="SUPPRIMER"
+            className="mt-2 h-12 w-full rounded-2xl glass px-4 text-center text-[15px] font-bold tracking-wider outline-none placeholder:font-normal placeholder:tracking-normal placeholder:text-fg/25"
+          />
+
+          {erreur && (
+            <p className="mt-2.5 text-center text-[12px] text-red-400">
+              {erreur}
+            </p>
+          )}
+
+          <div className="mt-2.5 flex gap-2">
+            <button
+              onClick={() => {
+                setEtape(0);
+                setMot("");
+                setErreur(null);
+              }}
+              className="h-11 flex-1 rounded-full bg-fg/[.07] text-[13.5px] font-semibold text-fg/70 transition active:scale-[.98]"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={() =>
+                demarrer(async () => {
+                  setErreur(null);
+                  const res = await supprimerCompte();
+                  if (!res.ok) {
+                    setErreur(res.error);
+                    return;
+                  }
+                  router.push("/");
+                  router.refresh();
+                })
+              }
+              disabled={mot !== "SUPPRIMER" || envoi}
+              className={cx(
+                "h-11 flex-1 rounded-full text-[13.5px] font-bold transition active:scale-[.98]",
+                mot === "SUPPRIMER" && !envoi
+                  ? "bg-red-500 text-white"
+                  : "bg-fg/8 text-fg/25 active:scale-100",
+              )}
+            >
+              {envoi ? "Suppression…" : "Supprimer"}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
