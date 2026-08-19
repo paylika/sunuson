@@ -11,7 +11,13 @@ import { TrackRow } from "./player-ui";
 import { Avatar, Button, Cover, cx, Glass, NameWithBadge, Stat } from "./ui";
 import { Check, Copy, Share, Spark } from "./icons";
 
-type Tab = "sons" | "soutiens";
+type Tab = "singles" | "projets" | "soutiens";
+
+const LIBELLE_PROJET: Record<string, string> = {
+  ep: "EP",
+  mixtape: "Mixtape",
+  album: "Album",
+};
 
 export function ArtistView({
   artist,
@@ -26,7 +32,33 @@ export function ArtistView({
   /** Nom du visiteur connecté, s'il en a choisi un. */
   nomDuFan?: string;
 }) {
-  const [tab, setTab] = useState<Tab>("sons");
+  const [tab, setTab] = useState<Tab>("singles");
+
+  // Un single et un projet ne se regardent pas de la même façon : l'un
+  // s'écoute tout de suite, l'autre se parcourt. Les mélanger dans une seule
+  // liste faisait passer un album de dix titres pour dix morceaux isolés, et
+  // noyait les singles au milieu.
+  const singles = tracks.filter((t) => !t.releaseId);
+
+  const projets = tracks.reduce<
+    { id: string; titre: string; type: string; morceaux: Track[] }[]
+  >((acc, t) => {
+    if (!t.releaseId) return acc;
+
+    const vu = acc.find((p) => p.id === t.releaseId);
+    if (vu) {
+      vu.morceaux.push(t);
+      return acc;
+    }
+
+    acc.push({
+      id: t.releaseId,
+      titre: t.releaseTitle ?? "Projet",
+      type: LIBELLE_PROJET[t.releaseType ?? "ep"] ?? "Projet",
+      morceaux: [t],
+    });
+    return acc;
+  }, []);
   const [sheet, setSheet] = useState<{ open: boolean; track?: Track }>({
     open: false,
   });
@@ -180,7 +212,8 @@ export function ArtistView({
       <div className="mt-6 flex gap-1.5 rounded-full glass p-1.5">
         {(
           [
-            ["sons", `Sons ${tracks.length}`],
+            ["singles", `Singles ${singles.length}`],
+            ["projets", `Projets ${projets.length}`],
             ["soutiens", `Soutiens ${supports.length}`],
           ] as const
         ).map(([id, label]) => (
@@ -188,7 +221,7 @@ export function ArtistView({
             key={id}
             onClick={() => setTab(id)}
             className={cx(
-              "h-10 flex-1 rounded-full text-[13px] font-medium transition",
+              "h-10 flex-1 rounded-full text-[12.5px] font-medium transition",
               tab === id
                 ? "grad-brand text-ink shadow-[0_8px_22px_-10px_rgba(224,78,200,.9)]"
                 : "text-fg/50",
@@ -200,19 +233,67 @@ export function ArtistView({
       </div>
 
       <div className="mt-4">
-        {tab === "sons" && (
-          <div className="space-y-0.5">
-            {tracks.map((t, i) => (
-              <TrackRow
-                key={t.id}
-                track={t}
-                artist={artist}
-                index={i}
-                onSupport={(track) => setSheet({ open: true, track })}
-              />
-            ))}
-          </div>
-        )}
+        {tab === "singles" &&
+          (singles.length === 0 ? (
+            <Vide texte="Aucun single pour l'instant." />
+          ) : (
+            <div className="space-y-0.5">
+              {singles.map((t, i) => (
+                <TrackRow
+                  key={t.id}
+                  track={t}
+                  artist={artist}
+                  index={i}
+                  onSupport={(track) => setSheet({ open: true, track })}
+                />
+              ))}
+            </div>
+          ))}
+
+        {tab === "projets" &&
+          (projets.length === 0 ? (
+            <Vide texte="Aucun projet pour l'instant." />
+          ) : (
+            <div className="space-y-4">
+              {projets.map((p) => (
+                <div key={p.id}>
+                  {/* La pochette du projet est celle de son premier titre :
+                      ils la partagent tous, elle a été choisie une fois pour
+                      l'ensemble au moment de la publication. */}
+                  <div className="mb-2 flex items-center gap-3 px-1">
+                    <Cover
+                      gradient={artist.gradient}
+                      src={p.morceaux[0]?.coverUrl}
+                      alt={p.titre}
+                      rounded="rounded-xl"
+                      className="h-12 w-12 shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[15px] font-bold">
+                        {p.titre}
+                      </div>
+                      <div className="mt-0.5 text-[11.5px] text-fg/40">
+                        {p.type} · {p.morceaux.length} titre
+                        {p.morceaux.length > 1 ? "s" : ""}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-0.5">
+                    {p.morceaux.map((t, i) => (
+                      <TrackRow
+                        key={t.id}
+                        track={t}
+                        artist={artist}
+                        index={i}
+                        onSupport={(track) => setSheet({ open: true, track })}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
 
         {tab === "soutiens" && <SupporterWall supports={supports} />}
       </div>
@@ -261,5 +342,14 @@ export function ArtistView({
         onClose={() => setSheet({ open: false })}
       />
     </>
+  );
+}
+
+/** Un onglet vide le dit, plutôt que de laisser un blanc qui passe pour un bogue. */
+function Vide({ texte }: { texte: string }) {
+  return (
+    <Glass className="rounded-[24px] px-5 py-8 text-center">
+      <p className="text-[13px] text-fg/45">{texte}</p>
+    </Glass>
   );
 }
