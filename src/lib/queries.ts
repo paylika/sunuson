@@ -822,3 +822,33 @@ export async function getContexte(userId?: string): Promise<Contexte> {
     ],
   };
 }
+
+/**
+ * Un soutien et l'artiste qu'il vise, pour l'écran de retour de paiement.
+ *
+ * Aucune information sensible n'en sort : ni le numéro de retrait, ni le
+ * compte du fan. Cette page s'ouvre par une adresse devinable, elle ne doit
+ * rien révéler de plus que ce que le payeur sait déjà.
+ */
+export async function getSupportById(id: string): Promise<{
+  status: string;
+  artistName: string;
+  artistSlug: string;
+} | null> {
+  const res = await client()
+    .from("supports")
+    .select("status, artists(name, slug)")
+    .eq("id", id)
+    .maybeSingle<{
+      status: string;
+      artists: { name: string; slug: string } | null;
+    }>();
+
+  if (res.error || !res.data) return null;
+
+  return {
+    status: res.data.status,
+    artistName: res.data.artists?.name ?? "l'artiste",
+    artistSlug: res.data.artists?.slug ?? "",
+  };
+}

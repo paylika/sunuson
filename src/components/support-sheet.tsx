@@ -107,7 +107,18 @@ export function SupportSheet({
       message: message.trim() || undefined,
       method,
       positionSec,
+      artistName: artist.name,
+      trackTitle: track?.title,
     });
+
+    if (result.ok && result.url) {
+      // Départ chez l'opérateur. On ne repasse pas `pending` à false : la
+      // page va disparaître, et un bouton qui redevient actif une seconde
+      // avant la redirection invite à cliquer deux fois — donc à payer deux
+      // fois.
+      window.location.href = result.url;
+      return;
+    }
 
     setPending(false);
 

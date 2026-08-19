@@ -17,6 +17,7 @@ import {
   type TypeProjet,
 } from "./config";
 import { communeValide } from "./senegal";
+import { fournisseur, ouvrirPaiement } from "./paiement";
 import { stylesValides } from "./styles";
 import {
   AUDIO_BUCKET,
@@ -40,7 +41,12 @@ export type ActionResult = { ok: true } | { ok: false; error: string };
 /* ============================================================== soutiens */
 
 export type SupportResult =
-  | { ok: true; supportId: string }
+  | {
+      ok: true;
+      supportId: string;
+      /** Adresse de paiement de l'agrégateur. Vide en mode démonstration. */
+      url?: string;
+    }
   | { ok: false; error: string };
 
 export async function createSupport(input: {
@@ -53,6 +59,9 @@ export async function createSupport(input: {
   method: PaymentMethod;
   /** Seconde du morceau au moment de l'envoi, pour l'épingler sur l'onde. */
   positionSec?: number;
+  /** Sert au libellé affiché par l'agrégateur pendant le paiement. */
+  artistName?: string;
+  trackTitle?: string;
 }): Promise<SupportResult> {
   const amount = Math.round(Number(input.amount));
 
@@ -121,18 +130,51 @@ export async function createSupport(input: {
     return { ok: false, error: error?.message ?? "Insertion impossible." };
   }
 
-  // ⚠️ DÉMO UNIQUEMENT. Aucun agrégateur n'est branché, donc on confirme
-  // nous-mêmes. En production c'est le webhook — et lui seul — qui a le droit
-  // de faire passer un soutien en 'paid'. Ce bloc ne s'exécute jamais hors dev.
-  if (process.env.NODE_ENV !== "production") {
-    await admin
-      .from("supports")
-      .update({ status: "paid", paid_at: new Date().toISOString() })
-      .eq("id", data.id);
+  // ------------------------------------------------------------ paiement
+
+  if (fournisseur() === "demo") {
+    // ⚠️ DÉMO UNIQUEMENT. Aucun agrégateur branché : on confirme nous-mêmes
+    // pour que le produit reste jouable. Ce bloc ne s'exécute jamais quand un
+    // vrai fournisseur est configuré, et jamais en production.
+    if (process.env.NODE_ENV !== "production") {
+      await admin
+        .from("supports")
+        .update({ status: "paid", paid_at: new Date().toISOString() })
+        .eq("id", data.id);
+    }
+
+    revalidateAll(input.artistSlug);
+    return { ok: true, supportId: data.id };
   }
 
-  revalidateAll(input.artistSlug);
-  return { ok: true, supportId: data.id };
+  // Le montant transmis à l'agrégateur est celui qu'on vient d'écrire en
+  // base, jamais celui annoncé par le navigateur.
+  const paiement = await ouvrirPaiement({
+    supportId: data.id,
+    montant: amount,
+    artiste: input.artistName ?? "un artiste",
+    morceau: input.trackTitle,
+    retour: `${baseUrl()}/soutien/${data.id}`,
+  });
+
+  if (!paiement.ok) {
+    // Le soutien reste en attente : il ne doit surtout pas paraître payé, et
+    // une trace vaut mieux qu'une ligne effacée si l'argent est parti quand
+    // même du côté de l'opérateur.
+    await admin
+      .from("supports")
+      .update({ status: "failed" })
+      .eq("id", data.id);
+
+    return { ok: false, error: paiement.error };
+  }
+
+  await admin
+    .from("supports")
+    .update({ provider_ref: paiement.ref })
+    .eq("id", data.id);
+
+  return { ok: true, supportId: data.id, url: paiement.url };
 }
 
 /* ================================================================ images */
@@ -998,6 +1040,18 @@ function revalidatePath(chemin: string, type?: "layout" | "page") {
   } catch {
     /* pas de cache à invalider sur cet hébergement */
   }
+}
+
+/**
+ * L'adresse publique du site, pour le retour de paiement.
+ *
+ * L'agrégateur renvoie le fan vers nous une fois qu'il a payé : cette adresse
+ * doit être absolue et joignable de l'extérieur. En local, elle ne l'est pas —
+ * c'est normal, le paiement réel ne se teste que sur le site déployé.
+ */
+function baseUrl(): string {
+  const v = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL;
+  return (v || "http://localhost:3000").replace(/\/$/, "");
 }
 
 /**
