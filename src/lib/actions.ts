@@ -62,6 +62,8 @@ export async function createSupport(input: {
   /** Sert au libellé affiché par l'agrégateur pendant le paiement. */
   artistName?: string;
   trackTitle?: string;
+  /** Numéro mobile money du fan. Exigé par l'agrégateur, pas par nous. */
+  phone?: string;
 }): Promise<SupportResult> {
   const amount = Math.round(Number(input.amount));
 
@@ -155,6 +157,8 @@ export async function createSupport(input: {
     artiste: input.artistName ?? "un artiste",
     morceau: input.trackTitle,
     retour: `${baseUrl()}/soutien/${data.id}`,
+    telephone: input.phone,
+    methode: input.method,
   });
 
   if (!paiement.ok) {

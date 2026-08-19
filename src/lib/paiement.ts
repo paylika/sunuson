@@ -21,12 +21,12 @@ import { createHmac, createHash, timingSafeEqual } from "node:crypto";
  * signé par l'agrégateur fait passer un soutien en payé.
  */
 
-export type Fournisseur = "demo" | "paydunya" | "intech";
+export type Fournisseur = "demo" | "paydunya" | "unitech";
 
 export function fournisseur(): Fournisseur {
   const v = (process.env.PAYMENT_PROVIDER ?? "").toLowerCase();
   if (v === "paydunya") return "paydunya";
-  if (v === "intech" || v === "intechpay") return "intech";
+  if (v === "unitech" || v === "unitechpay") return "unitech";
   return "demo";
 }
 
@@ -52,6 +52,9 @@ export async function ouvrirPaiement(input: {
   artiste: string;
   morceau?: string;
   retour: string;
+  /** Exigé par UnitechPay, pour Wave comme pour Orange Money. */
+  telephone?: string;
+  methode: "wave" | "orange_money";
 }): Promise<Paiement> {
   const f = fournisseur();
 
@@ -60,91 +63,87 @@ export async function ouvrirPaiement(input: {
     // mode démonstration de l'action de soutien qui confirmera.
     return { ok: true, url: "", ref: `demo_${input.supportId}` };
   }
-  return f === "intech" ? ouvrirIntech(input) : ouvrirPayDunya(input);
+  return f === "unitech" ? ouvrirUnitech(input) : ouvrirPayDunya(input);
 }
 
 /**
- * IntechPay — agrégateur sénégalais couvrant Orange Money, Wave et Free Money.
+ * UnitechPay — https://pay.unitech.sn/documentation/
  *
- * ⚠️ À CONFRONTER À TON INTÉGRATION PAYLIKA. Tu as déjà un branchement qui
- * fonctionne : les trois points ci-dessous sont ceux qui diffèrent d'un
- * agrégateur à l'autre, et se recopient en dix minutes depuis un code qui
- * marche —
+ * Écrit d'après la documentation officielle, pas d'après une supposition.
+ * Deux points en découlent, et tous deux ont des conséquences visibles :
  *
- *   1. l'adresse exacte de création de transaction ;
- *   2. le nom des champs envoyés (montant, référence, adresse de retour) ;
- *   3. la façon dont la réponse annonce l'adresse de paiement.
+ * 1. Le NUMÉRO DE TÉLÉPHONE du client est obligatoire pour Wave comme pour
+ *    Orange Money. La feuille de soutien doit donc le demander — ce n'est pas
+ *    une coquetterie d'intégration, l'agrégateur refuse sans lui.
  *
- * Le reste — la place de cette fonction, la relecture du montant en base, la
- * référence rattachée au soutien, l'idempotence du webhook — ne dépend pas du
- * fournisseur et n'aura pas à bouger.
+ * 2. L'agrégateur ne transporte AUCUN identifiant à nous : sa réponse donne
+ *    sa propre `reference`, et c'est elle qui reviendra dans la notification.
+ *    On l'écrit donc en base immédiatement, et le rapprochement se fait
+ *    dessus.
  */
-async function ouvrirIntech(input: {
+async function ouvrirUnitech(input: {
   supportId: string;
   montant: number;
   artiste: string;
   morceau?: string;
   retour: string;
+  telephone?: string;
+  methode: "wave" | "orange_money";
 }): Promise<Paiement> {
-  const cle = process.env.INTECH_API_KEY;
-  const marchand = process.env.INTECH_MERCHANT_ID;
-  const base = process.env.INTECH_API_URL;
+  const cle = process.env.UNITECH_API_KEY;
+  if (!cle) return { ok: false, error: "Paiement non configuré." };
 
-  if (!cle || !marchand || !base) {
-    return { ok: false, error: "Paiement non configuré." };
+  const numero = (input.telephone ?? "").replace(/\D/g, "");
+  if (numero.length < 9) {
+    return { ok: false, error: "Numéro de téléphone requis pour payer." };
   }
+
+  const base = process.env.UNITECH_API_URL || "https://api.unitech.sn/api.php";
+
+  // Wave et Orange Money ont chacun leur point d'entrée. On prend « Orange
+  // Money standard » plutôt que le QR ou Max It : c'est le seul des trois qui
+  // rende une adresse de paiement utilisable telle quelle depuis un
+  // navigateur, sans imposer une application précise au fan.
+  const action =
+    input.methode === "wave" ? "create_wave_payment" : "create_orange_om";
 
   const libelle = input.morceau
     ? `Soutien à ${input.artiste} — ${input.morceau}`
     : `Soutien à ${input.artiste}`;
 
   try {
-    const res = await fetch(`${base.replace(/\/$/, "")}/transaction`, {
+    const res = await fetch(`${base}?action=${action}`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        // Certains agrégateurs attendent la clé en Bearer, d'autres dans un
-        // en-tête propre. On envoie les deux : l'inutile est ignoré.
         Authorization: `Bearer ${cle}`,
-        "X-API-KEY": cle,
       },
       body: JSON.stringify({
-        merchantId: marchand,
         amount: input.montant,
-        currency: "XOF",
-        // Notre identifiant de soutien voyage jusqu'au retour : c'est lui qui
-        // rattache le paiement, jamais le montant annoncé.
-        externalTransactionId: input.supportId,
+        customer_number: numero,
         description: libelle,
-        callbackUrl: `${input.retour.split("/soutien/")[0]}/api/paiement/webhook`,
-        successUrl: input.retour,
-        errorUrl: input.retour,
+        callback_success: input.retour,
+        callback_cancel: input.retour,
       }),
     });
 
     const data = (await res.json()) as {
       success?: boolean;
-      error?: string;
       message?: string;
-      data?: { url?: string; paymentUrl?: string; transactionId?: string };
+      data?: { payment_url?: string; reference?: string };
     };
 
-    // On accepte plusieurs noms parce qu'ils varient d'une version à l'autre ;
-    // en revanche on refuse net s'il n'y a pas d'adresse, plutôt que de
-    // renvoyer le fan vers une page vide.
-    const url = data.data?.paymentUrl ?? data.data?.url;
-
-    if (!res.ok || data.success === false || !url) {
+    if (!res.ok || !data.success || !data.data?.payment_url) {
       return {
         ok: false,
-        error: data.error ?? data.message ?? "L'agrégateur a refusé la demande.",
+        error: data.message ?? "L'agrégateur a refusé la demande.",
       };
     }
 
     return {
       ok: true,
-      url,
-      ref: data.data?.transactionId ?? input.supportId,
+      url: data.data.payment_url,
+      ref: data.data.reference ?? input.supportId,
     };
   } catch {
     return { ok: false, error: "Agrégateur injoignable. Réessaie." };
@@ -253,65 +252,8 @@ export function lireEvenement(
 ): Evenement {
   const f = fournisseur();
   if (f === "paydunya") return lirePayDunya(corpsBrut);
-  if (f === "intech") return lireIntech(corpsBrut, entetes);
+  if (f === "unitech") return lireUnitech(corpsBrut, entetes);
   return lireDemo(corpsBrut, entetes);
-}
-
-/**
- * Notification d'IntechPay.
- *
- * ⚠️ La vérification de signature est LE point à confronter à ton intégration
- * Paylika. Deux formes existent selon les agrégateurs : un secret partagé
- * dans un en-tête, ou une empreinte HMAC du corps. Les deux sont acceptées
- * ici, et une seule suffit — mais si aucune n'est configurée, on REFUSE.
- *
- * Refuser plutôt que laisser passer est le seul comportement défendable : un
- * webhook non vérifié permet à n'importe qui de déclarer un soutien payé.
- */
-function lireIntech(corpsBrut: string, entetes: Headers): Evenement {
-  const secret = process.env.INTECH_WEBHOOK_SECRET;
-  if (!secret) {
-    return { ok: false, error: "Webhook non configuré.", statut: 503 };
-  }
-
-  const entete =
-    entetes.get("x-intech-signature") ??
-    entetes.get("x-signature") ??
-    entetes.get("x-webhook-secret") ??
-    "";
-
-  const parSecret = egales(entete, secret);
-  const parHmac = egales(entete, signer(corpsBrut, secret));
-
-  if (!parSecret && !parHmac) {
-    return { ok: false, error: "Signature invalide.", statut: 401 };
-  }
-
-  try {
-    const p = JSON.parse(corpsBrut) as {
-      externalTransactionId?: string;
-      transactionId?: string;
-      status?: string;
-      amount?: number | string;
-    };
-
-    const ref = p.externalTransactionId ?? p.transactionId;
-    if (!ref) {
-      return { ok: false, error: "Référence absente.", statut: 400 };
-    }
-
-    const montant = Number(p.amount);
-    const etat = (p.status ?? "").toUpperCase();
-
-    return {
-      ok: true,
-      ref,
-      paye: ["SUCCESS", "SUCCESSFUL", "COMPLETED", "PAID"].includes(etat),
-      montant: Number.isFinite(montant) ? montant : undefined,
-    };
-  } catch {
-    return { ok: false, error: "Corps illisible.", statut: 400 };
-  }
 }
 
 /**
@@ -327,8 +269,7 @@ function lireDemo(corpsBrut: string, entetes: Headers): Evenement {
     return { ok: false, error: "Webhook non configuré.", statut: 503 };
   }
 
-  const recu = entetes.get("x-webhook-secret") ?? "";
-  if (!egales(recu, secret)) {
+  if (!egales(entetes.get("x-webhook-secret") ?? "", secret)) {
     return { ok: false, error: "Signature invalide.", statut: 401 };
   }
 
@@ -352,6 +293,78 @@ function lireDemo(corpsBrut: string, entetes: Headers): Evenement {
   } catch {
     return { ok: false, error: "Corps illisible.", statut: 400 };
   }
+}
+
+/**
+ * Notification d'UnitechPay.
+ *
+ * La documentation propose deux vérifications équivalentes. On accepte les
+ * deux, mais l'ordre compte : la seconde est essayée d'abord parce qu'elle
+ * est celle que la documentation recommande DERRIÈRE UN CDN — et nous sommes
+ * derrière Cloudflare, qui peut réécrire le corps ou les en-têtes.
+ *
+ *   1. empreinte du corps brut, dans l'en-tête X-UNITECHPAY-SIGNATURE ;
+ *   2. empreinte d'une chaîne canonique de champs stables, dans le corps :
+ *      event|reference|amount|status|signed_at.
+ *
+ * Le secret est la clé d'API elle-même — c'est ce que dit la documentation,
+ * et c'est pour ça qu'il n'y a pas de variable de webhook séparée.
+ */
+function lireUnitech(corpsBrut: string, entetes: Headers): Evenement {
+  const cle = process.env.UNITECH_API_KEY;
+  if (!cle) {
+    return { ok: false, error: "Webhook non configuré.", statut: 503 };
+  }
+
+  let p: {
+    event?: string;
+    reference?: string;
+    amount?: number | string;
+    status?: string;
+    signed_at?: number | string;
+    signature?: string;
+  };
+
+  try {
+    p = JSON.parse(corpsBrut);
+  } catch {
+    return { ok: false, error: "Corps illisible.", statut: 400 };
+  }
+
+  const canonique = [
+    p.event ?? "",
+    p.reference ?? "",
+    p.amount ?? "",
+    p.status ?? "",
+    p.signed_at ?? "",
+  ].join("|");
+
+  const parCorps =
+    !!p.signature && egales(p.signature, signer(canonique, cle));
+
+  const parEntete = egales(
+    entetes.get("x-unitechpay-signature") ?? "",
+    signer(corpsBrut, cle),
+  );
+
+  if (!parCorps && !parEntete) {
+    return { ok: false, error: "Signature invalide.", statut: 401 };
+  }
+
+  if (!p.reference) {
+    return { ok: false, error: "Référence absente.", statut: 400 };
+  }
+
+  const montant = Number(p.amount);
+
+  return {
+    ok: true,
+    ref: p.reference,
+    // On se fie à l'événement plutôt qu'au statut : c'est lui qui distingue
+    // un paiement réussi d'un retrait traité, et les deux portent « completed ».
+    paye: p.event === "payment_completed" && p.status === "completed",
+    montant: Number.isFinite(montant) ? montant : undefined,
+  };
 }
 
 /**

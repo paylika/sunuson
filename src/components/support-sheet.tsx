@@ -51,6 +51,9 @@ export function SupportSheet({
   const [name, setName] = useState(nomParDefaut ?? "");
   const [message, setMessage] = useState("");
   const [method, setMethod] = useState<PaymentMethod>("wave");
+  // L'agrégateur exige le numéro du payeur, pour Wave comme pour Orange
+  // Money : c'est sur ce numéro qu'il envoie la demande de paiement.
+  const [phone, setPhone] = useState("");
   const [pending, setPending] = useState(false);
 
   /**
@@ -113,6 +116,7 @@ export function SupportSheet({
       positionSec,
       artistName: artist.name,
       trackTitle: track?.title,
+      phone,
     });
 
     if (result.ok && result.url) {
@@ -186,6 +190,8 @@ export function SupportSheet({
               amount={amount}
               method={method}
               setMethod={setMethod}
+              phone={phone}
+              setPhone={setPhone}
               pending={pending}
               error={error}
               onBack={() => setStep("montant")}
@@ -371,6 +377,8 @@ function PaiementStep({
   amount,
   method,
   setMethod,
+  phone,
+  setPhone,
   pending,
   error,
   onBack,
@@ -379,11 +387,16 @@ function PaiementStep({
   amount: number;
   method: PaymentMethod;
   setMethod: (m: PaymentMethod) => void;
+  phone: string;
+  setPhone: (v: string) => void;
   pending: boolean;
   error: string | null;
   onBack: () => void;
   onConfirm: () => void;
 }) {
+  // Neuf chiffres au Sénégal. On vérifie ici pour éviter un aller-retour
+  // jusqu'à l'agrégateur qui refuserait de toute façon.
+  const numeroValide = phone.replace(/\D/g, "").length >= 9;
   return (
     <>
       <div className="pr-12">
@@ -436,6 +449,28 @@ function PaiementStep({
         })}
       </div>
 
+      {/* Le numéro est exigé par l'agrégateur : c'est sur lui qu'il envoie la
+          demande de paiement. On le demande APRÈS le choix du moyen, pour que
+          le fan sache de quel compte on parle. */}
+      <div className="mt-3">
+        <label className="px-1 text-[11.5px] font-semibold text-fg/50">
+          Ton numéro {method === "wave" ? "Wave" : "Orange Money"}
+        </label>
+        <input
+          value={phone}
+          onChange={(e) => setPhone(e.target.value.replace(/[^\d ]/g, ""))}
+          inputMode="numeric"
+          autoComplete="tel"
+          placeholder="77 000 00 00"
+          maxLength={15}
+          className="mt-1.5 h-14 w-full rounded-2xl glass px-4 text-[16px] tabular-nums outline-none placeholder:text-fg/25 focus:border-acid-500/40"
+        />
+        <p className="mt-1.5 px-1 text-[11px] leading-relaxed text-fg/35">
+          Tu recevras la demande de paiement sur ce numéro. Il n&apos;est
+          jamais affiché publiquement.
+        </p>
+      </div>
+
       <div className="mt-5 rounded-2xl glass px-4 py-3.5 text-[12px] leading-relaxed text-fg/50">
         Tu vas recevoir une demande de paiement sur ton téléphone. Valide-la
         pour confirmer ton soutien.
@@ -451,7 +486,11 @@ function PaiementStep({
         <Button variant="glass" onClick={onBack} className="px-6">
           Retour
         </Button>
-        <Button onClick={onConfirm} disabled={pending} className="flex-1">
+        <Button
+          onClick={onConfirm}
+          disabled={pending || !numeroValide}
+          className="flex-1"
+        >
           {pending ? "Envoi en cours…" : `Payer ${fcfa(amount)}`}
         </Button>
       </div>
